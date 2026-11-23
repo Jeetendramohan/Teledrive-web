@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex, nofollow">
-    <title>TeleCloud Drive v2</title>
+    <title>TeleCloud Drive v4</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         :root {
             --bg: #f8fafc;
@@ -45,13 +46,21 @@
 
         #workspace { display: none; max-width: 900px; margin: 0 auto; }
 
-        .topbar { background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(10px); padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 20; border-bottom: 1px solid var(--border); }
+        .topbar { background: rgba(255, 255, 255, 0.94); backdrop-filter: blur(10px); padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 20; border-bottom: 1px solid var(--border); }
         .topbar-left { display: flex; align-items: center; gap: 10px; }
         .topbar-logo { width: 34px; height: 34px; background: var(--primary); color: #fff; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
         .topbar h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
         .top-actions { display: flex; gap: 6px; }
         .icon-btn { background: var(--surface-2); color: var(--text); border: none; border-radius: 10px; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.15s; }
         .icon-btn:active { transform: scale(0.93); }
+
+        /* Multi-Select Batch Bar */
+        #batchBar { display: none; background: var(--primary); color: #fff; padding: 10px 14px; position: sticky; top: 0; z-index: 30; align-items: center; justify-content: space-between; gap: 8px; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25); }
+        #batchBar.active { display: flex; }
+        .batch-left { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; }
+        .batch-actions { display: flex; gap: 6px; }
+        .batch-btn { background: rgba(255,255,255,0.18); color: #fff; border: none; border-radius: 9px; padding: 8px 10px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+        .batch-btn:active { background: rgba(255,255,255,0.3); }
 
         .controls-wrap { padding: 12px 16px 6px; display: flex; flex-direction: column; gap: 10px; }
         .search-box { position: relative; }
@@ -61,7 +70,7 @@
 
         .action-pills { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
         .action-pills::-webkit-scrollbar { display: none; }
-        .pill-btn { flex: 1; white-space: nowrap; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; }
+        .pill-btn { flex: 1; white-space: nowrap; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; }
         .pill-btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
         .pill-btn.trash-active { background: var(--danger-soft); color: var(--danger); border-color: #fecaca; }
 
@@ -78,12 +87,17 @@
         .list-view { display: flex; flex-direction: column; gap: 8px; }
         .grid-view { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 10px; }
 
-        .item-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; transition: 0.15s; box-shadow: var(--shadow); }
-        .item-card:active { transform: scale(0.99); background: #f8fafc; }
+        .item-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; transition: 0.15s; box-shadow: var(--shadow); position: relative; user-select: none; -webkit-user-select: none; }
+        .item-card:active { transform: scale(0.99); }
+        .item-card.selected { border-color: var(--primary); background: #f0f9ff; }
+
+        .select-check { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #cbd5e1; background: #fff; display: none; align-items: center; justify-content: center; flex-shrink: 0; font-size: 12px; font-weight: 700; color: #fff; }
+        .multi-mode .select-check { display: flex; }
+        .item-card.selected .select-check { background: var(--primary); border-color: var(--primary); }
 
         .item-left { display: flex; align-items: center; gap: 12px; overflow: hidden; flex: 1; }
         .thumb-box { width: 46px; height: 46px; border-radius: 10px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; position: relative; }
-        .thumb-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .thumb-box img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
         .thumb-box.folder-bg { background: #fef3c7; color: #d97706; }
 
         .item-info { overflow: hidden; flex: 1; }
@@ -91,6 +105,7 @@
         .item-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
         .item-actions { display: flex; gap: 4px; flex-shrink: 0; }
+        .multi-mode .item-actions { display: none; }
         .mini-btn { border: none; background: var(--surface-2); color: var(--muted); width: 34px; height: 34px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
         .mini-btn:hover { background: var(--border); color: var(--text); }
         .mini-btn.del:hover { background: var(--danger-soft); color: var(--danger); }
@@ -102,27 +117,44 @@
         .grid-view .item-sub { display: none; }
         .grid-view .item-actions { justify-content: center; width: 100%; border-top: 1px solid var(--surface-2); padding-top: 6px; }
         .grid-view .mini-btn { flex: 1; height: 30px; }
+        .grid-view .select-check { position: absolute; top: 8px; right: 8px; z-index: 3; }
 
         .empty-msg { text-align: center; color: var(--muted); padding: 48px 20px; font-size: 14px; }
 
-        .modal-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+        /* Modals */
+        .modal-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 250; padding: 20px; }
         .modal-backdrop.open { display: flex; }
-        .modal-card { background: var(--surface); border-radius: 18px; width: 100%; max-width: 360px; padding: 22px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); animation: pop 0.18s ease-out; }
+        .modal-card { background: var(--surface); border-radius: 18px; width: 100%; max-width: 360px; padding: 22px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); animation: pop 0.18s ease-out; max-height: 80vh; display: flex; flex-direction: column; }
         @keyframes pop { from { transform: scale(0.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
-        .modal-desc { font-size: 14px; color: var(--muted); line-height: 1.45; margin-bottom: 18px; word-break: break-word; }
+        .modal-desc { font-size: 14px; color: var(--muted); line-height: 1.45; margin-bottom: 16px; word-break: break-word; }
         .modal-input { width: 100%; padding: 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 15px; margin-bottom: 16px; outline: none; }
         .modal-input:focus { border-color: var(--primary); }
-        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+        .modal-list { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+        .folder-opt { padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); font-size: 14px; font-weight: 500; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+        .folder-opt:active { background: var(--primary-soft); border-color: var(--primary); }
 
-        #mediaViewer { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 200; display: none; flex-direction: column; }
+        /* Fullscreen Media Viewer */
+        #mediaViewer { position: fixed; inset: 0; background: #000; z-index: 200; display: none; flex-direction: column; user-select: none; }
         #mediaViewer.open { display: flex; }
-        .viewer-top { padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; color: #fff; gap: 12px; background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent); }
-        .viewer-title { font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-        .viewer-body { flex: 1; display: flex; align-items: center; justify-content: center; padding: 12px; overflow: hidden; position: relative; }
-        .viewer-body img, .viewer-body video { max-width: 100%; max-height: 100%; border-radius: 8px; object-fit: contain; }
-        .viewer-bottom { padding: 14px 16px; display: flex; justify-content: center; gap: 12px; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); }
-        .viewer-hint { text-align: center; color: #94a3b8; font-size: 11px; padding-bottom: 8px; }
+        .viewer-top { padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; color: #fff; gap: 10px; background: rgba(0,0,0,0.65); z-index: 5; }
+        .viewer-title-wrap { flex: 1; overflow: hidden; }
+        .viewer-title { font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .viewer-counter { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+
+        .viewer-body { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; touch-action: none; }
+        .viewer-body img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center center; will-change: transform; }
+        .viewer-body video { max-width: 100%; max-height: 100%; border-radius: 6px; object-fit: contain; }
+
+        .nav-arrow { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.16); color: #fff; border: none; width: 42px; height: 52px; border-radius: 12px; font-size: 22px; font-weight: 700; cursor: pointer; z-index: 10; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+        .nav-arrow:active { background: rgba(255,255,255,0.3); }
+        .nav-prev { left: 10px; }
+        .nav-next { right: 10px; }
+        .nav-arrow.hidden { display: none; }
+
+        .viewer-bottom { padding: 12px 16px; display: flex; justify-content: center; gap: 12px; background: rgba(0,0,0,0.7); z-index: 5; }
+        .viewer-hint { text-align: center; color: #94a3b8; font-size: 11px; padding: 4px 10px; background: rgba(0,0,0,0.7); }
 
         #statusBar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #fff; padding: 10px 18px; border-radius: 99px; font-size: 13px; font-weight: 500; display: none; z-index: 300; box-shadow: 0 8px 20px rgba(0,0,0,0.25); max-width: 90%; text-align: center; }
     </style>
@@ -153,7 +185,8 @@
     </div>
 
     <div id="workspace">
-        <div class="topbar">
+        <!-- Normal Topbar -->
+        <div class="topbar" id="normalTopbar">
             <div class="topbar-left">
                 <div class="topbar-logo">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
@@ -171,6 +204,20 @@
             </div>
         </div>
 
+        <!-- Multi-Select Batch Bar -->
+        <div id="batchBar">
+            <div class="batch-left">
+                <button class="batch-btn" onclick="exitMultiSelect()">✕</button>
+                <span id="selectedCountText">0 selected</span>
+            </div>
+            <div class="batch-actions">
+                <button class="batch-btn" onclick="selectAllVisible()" title="Select All">All</button>
+                <button class="batch-btn" onclick="openBatchDownloadModal()" title="Download">⬇️</button>
+                <button class="batch-btn" onclick="openBatchMoveModal()" title="Move">📂</button>
+                <button class="batch-btn" onclick="confirmBatchDelete()" title="Delete">🗑️</button>
+            </div>
+        </div>
+
         <div class="controls-wrap">
             <div class="search-box">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -183,7 +230,7 @@
                 </button>
                 <button class="pill-btn" onclick="openFolderModal()">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/><line x1="12" y1="10" x2="12" y2="16"/><line x1="9" y1="13" x2="15" y2="13"/></svg>
-                    New Folder
+                    Folder
                 </button>
                 <button class="pill-btn" id="btnTrash" onclick="toggleTrash()">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -210,6 +257,7 @@
         <div id="fileContainer" class="list-view"></div>
     </div>
 
+    <!-- Confirm Modal -->
     <div class="modal-backdrop" id="confirmModal">
         <div class="modal-card">
             <div class="modal-title" id="confirmTitle">Confirm</div>
@@ -221,6 +269,7 @@
         </div>
     </div>
 
+    <!-- New Folder Modal -->
     <div class="modal-backdrop" id="folderModal">
         <div class="modal-card">
             <div class="modal-title">New Folder</div>
@@ -232,16 +281,51 @@
         </div>
     </div>
 
+    <!-- Batch Move Modal -->
+    <div class="modal-backdrop" id="moveModal">
+        <div class="modal-card">
+            <div class="modal-title">Move to Folder</div>
+            <div class="modal-desc">Jis folder mein move karna hai use chunein:</div>
+            <div class="modal-list" id="moveFolderList"></div>
+            <div class="modal-actions">
+                <button class="btn btn-soft" onclick="closeModal('moveModal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Batch Download Choice Modal -->
+    <div class="modal-backdrop" id="dlChoiceModal">
+        <div class="modal-card">
+            <div class="modal-title">Download Options</div>
+            <div class="modal-desc" id="dlChoiceDesc">Kaise download karna chahte hain?</div>
+            <div class="modal-list">
+                <button class="btn btn-primary btn-full" onclick="closeModal('dlChoiceModal'); startBatchZipDownload();">📦 Download as ZIP (1 File)</button>
+                <button class="btn btn-soft btn-full" onclick="closeModal('dlChoiceModal'); startBatchNormalDownload();">📥 Download Normally (Alag-Alag)</button>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-soft" onclick="closeModal('dlChoiceModal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fullscreen Media Viewer -->
     <div id="mediaViewer">
         <div class="viewer-top">
-            <span class="viewer-title" id="viewerTitle">File</span>
+            <div class="viewer-title-wrap">
+                <div class="viewer-title" id="viewerTitle">File</div>
+                <div class="viewer-counter" id="viewerCounter"></div>
+            </div>
             <button class="icon-btn" style="background:rgba(255,255,255,0.15);color:#fff" onclick="closeViewer()">✕</button>
         </div>
-        <div class="viewer-body" id="viewerBody"></div>
+        <div class="viewer-body" id="viewerBody">
+            <button class="nav-arrow nav-prev" id="btnPrevMedia" onclick="stepMedia(-1)">‹</button>
+            <div id="viewerContent" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"></div>
+            <button class="nav-arrow nav-next" id="btnNextMedia" onclick="stepMedia(1)">›</button>
+        </div>
         <div class="viewer-hint" id="viewerHint"></div>
         <div class="viewer-bottom">
-            <button class="btn btn-primary" id="viewerDownloadBtn">Download / Open</button>
-            <button class="btn btn-danger" id="viewerDeleteBtn">Delete</button>
+            <button class="btn btn-primary" id="viewerDownloadBtn">📥 Download</button>
+            <button class="btn btn-danger" id="viewerDeleteBtn">🗑️ Delete</button>
         </div>
     </div>
 
@@ -249,6 +333,8 @@
 
     <script>
         const FIREBASE_URL = "https://teledrive300-default-rtdb.firebaseio.com/";
+        const WORKER_URL = "https://teledrive-dl.mohanjeetendraom.workers.dev/";
+
         let licenseKey = localStorage.getItem("td_key") || "";
         let botToken = localStorage.getItem("td_token") || "";
         let chatId = localStorage.getItem("td_chatId") || "";
@@ -258,6 +344,24 @@
         let currentPath = "/";
         let inTrash = false;
         let isGrid = localStorage.getItem("td_grid") === "true";
+
+        // Multi-select state
+        let isMultiSelect = false;
+        let selectedItems = new Set();
+        let currentVisibleItems = [];
+
+        // Media viewer state
+        let currentMediaList = [];
+        let currentMediaIndex = 0;
+        let isViewerOpen = false;
+
+        // Zoom & Swipe state
+        let zScale = 1, zX = 0, zY = 0;
+        let lastTapTime = 0;
+        let touchStartX = 0, touchStartY = 0;
+        let panStartX = 0, panStartY = 0;
+        let pinchStartDist = 0, pinchStartScale = 1;
+        let isPinching = false, isPanning = false;
 
         const urlCache = JSON.parse(sessionStorage.getItem("td_url_cache") || "{}");
         function saveUrlCache() {
@@ -277,12 +381,47 @@
             restore: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>`
         };
 
+        // --- Hardware / Browser Back Button Handling ---
+        history.replaceState({ view: "root" }, "");
+
+        window.addEventListener("popstate", () => {
+            const modals = ["confirmModal", "folderModal", "moveModal", "dlChoiceModal"];
+            for (const m of modals) {
+                if (document.getElementById(m).classList.contains("open")) {
+                    closeModal(m);
+                    return;
+                }
+            }
+            if (isViewerOpen) {
+                closeViewerInternal();
+                return;
+            }
+            if (isMultiSelect) {
+                exitMultiSelectInternal();
+                return;
+            }
+            if (inTrash) {
+                inTrash = false;
+                document.getElementById("btnTrash").classList.remove("trash-active");
+                document.getElementById("searchInput").value = "";
+                renderFiles();
+                return;
+            }
+            if (currentPath !== "/") {
+                const parts = currentPath.split("/").filter(Boolean);
+                parts.pop();
+                currentPath = parts.length ? "/" + parts.join("/") + "/" : "/";
+                document.getElementById("searchInput").value = "";
+                renderFiles();
+            }
+        });
+
         function showStatus(msg, autoHide = true) {
             const bar = document.getElementById("statusBar");
             bar.innerText = msg;
             bar.style.display = "block";
             clearTimeout(window.statusTimer);
-            if (autoHide) window.statusTimer = setTimeout(() => bar.style.display = "none", 3000);
+            if (autoHide) window.statusTimer = setTimeout(() => bar.style.display = "none", 3200);
         }
 
         function openConfirm(title, desc, okText, okClass, onConfirm) {
@@ -317,6 +456,25 @@
                 }
             } catch (e) {}
             return null;
+        }
+
+        function buildWorkerUrl(tgUrl, fileName, forceDownload = false) {
+            return `${WORKER_URL}?url=${encodeURIComponent(tgUrl)}&name=${encodeURIComponent(fileName)}${forceDownload ? "&dl=1" : ""}`;
+        }
+
+        // Proper Download via Cloudflare Worker (preserves filename & extension for Gallery)
+        async function downloadSingleFileProperly(item) {
+            showStatus(`Downloading ${item.name}...`, false);
+            const tgUrl = await getTelegramDirectUrl(item.fileId);
+            if (!tgUrl) return showStatus("File 20MB se badi hai ya expire ho gayi hai.");
+            const dlUrl = buildWorkerUrl(tgUrl, item.name || "file", true);
+            const a = document.createElement("a");
+            a.href = dlUrl;
+            a.download = item.name || "file";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            showStatus("Download started!");
         }
 
         const thumbObserver = new IntersectionObserver((entries) => {
@@ -411,25 +569,201 @@
         }
 
         function updateViewUI() {
-            document.getElementById("fileContainer").className = isGrid ? "grid-view" : "list-view";
+            const c = document.getElementById("fileContainer");
+            c.className = (isGrid ? "grid-view" : "list-view") + (isMultiSelect ? " multi-mode" : "");
             document.getElementById("btnView").innerHTML = isGrid ? ICONS.list : ICONS.grid;
         }
 
         function toggleTrash() {
-            inTrash = !inTrash;
-            const btn = document.getElementById("btnTrash");
-            btn.classList.toggle("trash-active", inTrash);
-            document.getElementById("searchInput").value = "";
-            renderFiles();
+            if (isMultiSelect) exitMultiSelect();
+            if (!inTrash) {
+                inTrash = true;
+                history.pushState({ view: "trash" }, "");
+                document.getElementById("btnTrash").classList.add("trash-active");
+                document.getElementById("searchInput").value = "";
+                renderFiles();
+            } else {
+                history.back();
+            }
         }
 
         function goBack() {
-            if (currentPath === "/") return;
-            const parts = currentPath.split("/").filter(Boolean);
-            parts.pop();
-            currentPath = parts.length ? "/" + parts.join("/") + "/" : "/";
-            document.getElementById("searchInput").value = "";
+            if (currentPath !== "/") history.back();
+        }
+
+        // --- Multi-Select Logic ---
+        function enterMultiSelect(firstItem) {
+            if (inTrash) return;
+            if (!isMultiSelect) {
+                isMultiSelect = true;
+                history.pushState({ view: "multiselect" }, "");
+                document.getElementById("normalTopbar").style.display = "none";
+                document.getElementById("batchBar").classList.add("active");
+                updateViewUI();
+            }
+            if (firstItem) toggleItemSelection(firstItem);
+        }
+
+        function exitMultiSelect() {
+            if (isMultiSelect) history.back();
+        }
+
+        function exitMultiSelectInternal() {
+            isMultiSelect = false;
+            selectedItems.clear();
+            document.getElementById("normalTopbar").style.display = "flex";
+            document.getElementById("batchBar").classList.remove("active");
+            updateViewUI();
             renderFiles();
+        }
+
+        function toggleItemSelection(item) {
+            if (selectedItems.has(item)) selectedItems.delete(item);
+            else selectedItems.add(item);
+
+            if (selectedItems.size === 0 && isMultiSelect) {
+                exitMultiSelect();
+                return;
+            }
+            document.getElementById("selectedCountText").innerText = `${selectedItems.size} selected`;
+            renderFiles();
+        }
+
+        function selectAllVisible() {
+            if (selectedItems.size === currentVisibleItems.length && currentVisibleItems.length > 0) {
+                exitMultiSelect();
+            } else {
+                currentVisibleItems.forEach(i => selectedItems.add(i));
+                document.getElementById("selectedCountText").innerText = `${selectedItems.size} selected`;
+                renderFiles();
+            }
+        }
+
+        function openBatchDownloadModal() {
+            const filesOnly = [...selectedItems].filter(i => i.type !== "folder");
+            if (filesOnly.length === 0) return showStatus("Download ke liye kam se kam 1 file select karein.");
+            if (filesOnly.length === 1) {
+                downloadSingleFileProperly(filesOnly[0]);
+                exitMultiSelect();
+                return;
+            }
+            document.getElementById("dlChoiceDesc").innerText = `${filesOnly.length} files selected hain. Kaise download karein?`;
+            document.getElementById("dlChoiceModal").classList.add("open");
+        }
+
+        async function startBatchNormalDownload() {
+            const filesOnly = [...selectedItems].filter(i => i.type !== "folder");
+            exitMultiSelect();
+            for (let i = 0; i < filesOnly.length; i++) {
+                showStatus(`Downloading (${i + 1}/${filesOnly.length}): ${filesOnly[i].name}`, false);
+                const tgUrl = await getTelegramDirectUrl(filesOnly[i].fileId);
+                if (tgUrl) {
+                    const a = document.createElement("a");
+                    a.href = buildWorkerUrl(tgUrl, filesOnly[i].name || "file", true);
+                    a.download = filesOnly[i].name || "file";
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    await new Promise(r => setTimeout(r, 700));
+                }
+            }
+            showStatus("Sabhi downloads start ho gaye!");
+        }
+
+        async function startBatchZipDownload() {
+            const filesOnly = [...selectedItems].filter(i => i.type !== "folder");
+            exitMultiSelect();
+            if (typeof JSZip === "undefined") return showStatus("ZIP library load nahi hui, Normal download try karein.");
+
+            const zip = new JSZip();
+            let added = 0;
+
+            for (let i = 0; i < filesOnly.length; i++) {
+                const item = filesOnly[i];
+                showStatus(`Zipping (${i + 1}/${filesOnly.length}): ${item.name}...`, false);
+                try {
+                    const tgUrl = await getTelegramDirectUrl(item.fileId);
+                    if (!tgUrl) continue;
+                    const res = await fetch(buildWorkerUrl(tgUrl, item.name, false));
+                    if (!res.ok) continue;
+                    const blob = await res.blob();
+                    zip.file(item.name || `file_${i+1}`, blob);
+                    added++;
+                } catch (e) {}
+            }
+
+            if (added === 0) return showStatus("Koi bhi file ZIP mein add nahi ho payi.");
+
+            showStatus("ZIP file ban rahi hai...", false);
+            const zipBlob = await zip.generateAsync({ type: "blob" });
+            const url = URL.createObjectURL(zipBlob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `TeleCloud_${Date.now()}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 5000);
+            showStatus("ZIP download started!");
+        }
+
+        function openBatchMoveModal() {
+            if (selectedItems.size === 0) return;
+            const listEl = document.getElementById("moveFolderList");
+            listEl.innerHTML = "";
+
+            const folderPaths = ["/"];
+            fileHistory.forEach(item => {
+                if (item.type === "folder") {
+                    const fp = (item.path || "/") + item.name + "/";
+                    if (!folderPaths.includes(fp)) folderPaths.push(fp);
+                }
+            });
+            folderPaths.sort();
+
+            folderPaths.forEach(fp => {
+                const btn = document.createElement("button");
+                btn.className = "folder-opt";
+                btn.innerText = fp === "/" ? "🏠 Home (/)" : "📁 " + fp;
+                btn.onclick = () => executeBatchMove(fp);
+                listEl.appendChild(btn);
+            });
+
+            document.getElementById("moveModal").classList.add("open");
+        }
+
+        async function executeBatchMove(targetPath) {
+            closeModal("moveModal");
+            let movedCount = 0;
+            selectedItems.forEach(item => {
+                // Prevent moving a folder into itself
+                if (item.type === "folder" && targetPath.startsWith((item.path || "/") + item.name + "/")) return;
+                item.path = targetPath;
+                movedCount++;
+            });
+            exitMultiSelect();
+            renderFiles();
+            await syncToCloud();
+            showStatus(`${movedCount} item(s) move ho gaye!`);
+        }
+
+        function confirmBatchDelete() {
+            const count = selectedItems.size;
+            if (count === 0) return;
+            openConfirm("Bin mein bhejein?", `Kya aap ${count} selected item(s) ko Recycle Bin mein move karna chahte hain?`, "Move to Bin", "btn-danger", async () => {
+                const toMove = [...selectedItems];
+                toMove.forEach(item => {
+                    const idx = fileHistory.indexOf(item);
+                    if (idx !== -1) {
+                        fileHistory.splice(idx, 1);
+                        trashHistory.push(item);
+                    }
+                });
+                exitMultiSelect();
+                renderFiles();
+                await syncToCloud();
+                showStatus(`${toMove.length} item(s) Bin mein bhej diye!`);
+            });
         }
 
         function getDefaultFileSvg(name) {
@@ -511,7 +845,10 @@
                 .filter(i => !query || (i.name || "").toLowerCase().includes(query))
                 .reverse();
 
+            currentMediaList = files.filter(f => isImageFile(f.name) || isVideoFile(f.name));
             const items = [...folders, ...files];
+            currentVisibleItems = items;
+
             if (items.length === 0) {
                 container.innerHTML = `<div class="empty-msg">${query ? "Koi matching file nahi mili" : "Ye folder khali hai"}</div>`;
                 return;
@@ -519,9 +856,42 @@
 
             items.forEach(item => {
                 const isFolder = item.type === "folder";
+                const isSelected = selectedItems.has(item);
                 const card = document.createElement("div");
-                card.className = "item-card";
-                card.onclick = () => isFolder ? openFolder(item.name) : handleFileClick(item);
+                card.className = "item-card" + (isSelected ? " selected" : "");
+
+                // Long-press detection for mobile & PC
+                let lpTimer = null;
+                let lpTriggered = false;
+
+                card.addEventListener("touchstart", () => {
+                    lpTriggered = false;
+                    lpTimer = setTimeout(() => {
+                        lpTriggered = true;
+                        if (navigator.vibrate) navigator.vibrate(25);
+                        enterMultiSelect(item);
+                    }, 480);
+                }, { passive: true });
+
+                card.addEventListener("touchmove", () => { clearTimeout(lpTimer); }, { passive: true });
+                card.addEventListener("touchend", () => { clearTimeout(lpTimer); }, { passive: true });
+                card.addEventListener("contextmenu", (e) => {
+                    e.preventDefault();
+                    if (!isMultiSelect) enterMultiSelect(item);
+                });
+
+                card.onclick = () => {
+                    if (lpTriggered) { lpTriggered = false; return; }
+                    if (isMultiSelect) {
+                        toggleItemSelection(item);
+                        return;
+                    }
+                    isFolder ? openFolder(item.name) : handleFileClick(item);
+                };
+
+                const check = document.createElement("div");
+                check.className = "select-check";
+                check.innerText = isSelected ? "✓" : "";
 
                 const left = document.createElement("div");
                 left.className = "item-left";
@@ -553,9 +923,9 @@
                 if (!isFolder) {
                     const btnDl = document.createElement("button");
                     btnDl.className = "mini-btn";
-                    btnDl.title = "Download / Open";
+                    btnDl.title = "Download";
                     btnDl.innerHTML = ICONS.download;
-                    btnDl.onclick = (e) => { e.stopPropagation(); openExternalFile(item); };
+                    btnDl.onclick = (e) => { e.stopPropagation(); downloadSingleFileProperly(item); };
                     actions.appendChild(btnDl);
                 }
 
@@ -569,13 +939,14 @@
                 };
                 actions.appendChild(btnDel);
 
-                card.append(left, actions);
+                card.append(check, left, actions);
                 container.appendChild(card);
             });
         }
 
         function openFolder(name) {
             currentPath = currentPath + name + "/";
+            history.pushState({ view: "folder", path: currentPath }, "");
             document.getElementById("searchInput").value = "";
             renderFiles();
         }
@@ -691,65 +1062,182 @@
             showStatus("Upload complete!");
         }
 
-        async function handleFileClick(item) {
+        // --- Media Viewer with Zoom & Swipe ---
+        function handleFileClick(item) {
             if (isImageFile(item.name) || isVideoFile(item.name)) {
-                openMediaViewer(item);
+                const idx = currentMediaList.findIndex(m => m === item || m.fileId === item.fileId);
+                currentMediaIndex = idx !== -1 ? idx : 0;
+                if (!isViewerOpen) {
+                    isViewerOpen = true;
+                    history.pushState({ view: "viewer" }, "");
+                    document.getElementById("mediaViewer").classList.add("open");
+                }
+                showMediaAtIndex(currentMediaIndex);
             } else {
-                openExternalFile(item);
+                downloadSingleFileProperly(item);
             }
         }
 
-        async function openMediaViewer(item) {
-            showStatus("Loading preview...", false);
-            const url = await getTelegramDirectUrl(item.fileId);
-            if (!url) return showStatus("File 20MB se badi hai ya load nahi ho payi.");
-            document.getElementById("statusBar").style.display = "none";
+        function resetZoom() {
+            zScale = 1; zX = 0; zY = 0;
+            applyZoomTransform();
+        }
 
-            const viewer = document.getElementById("mediaViewer");
-            const body = document.getElementById("viewerBody");
-            const hint = document.getElementById("viewerHint");
+        function applyZoomTransform() {
+            const img = document.getElementById("activeZoomImg");
+            if (img) img.style.transform = `translate3d(${zX}px, ${zY}px, 0) scale(${zScale})`;
+        }
+
+        async function showMediaAtIndex(idx) {
+            if (idx < 0 || idx >= currentMediaList.length) return;
+            currentMediaIndex = idx;
+            resetZoom();
+
+            const item = currentMediaList[idx];
             document.getElementById("viewerTitle").innerText = item.name;
-            body.innerHTML = "";
+            document.getElementById("viewerCounter").innerText = `${idx + 1} / ${currentMediaList.length}`;
+            document.getElementById("btnPrevMedia").classList.toggle("hidden", idx === 0);
+            document.getElementById("btnNextMedia").classList.toggle("hidden", idx === currentMediaList.length - 1);
 
+            const content = document.getElementById("viewerContent");
+            const hint = document.getElementById("viewerHint");
+            content.innerHTML = `<div style="color:#94a3b8;font-size:14px;">Loading...</div>`;
+            hint.innerText = "";
+
+            const url = await getTelegramDirectUrl(item.fileId);
+            if (!isViewerOpen || currentMediaIndex !== idx) return;
+
+            if (!url) {
+                content.innerHTML = `<div style="color:#f87171;font-size:14px;padding:20px;text-align:center;">File 20MB se badi hai ya load nahi ho payi.</div>`;
+                return;
+            }
+
+            content.innerHTML = "";
             if (isImageFile(item.name)) {
                 const img = document.createElement("img");
+                img.id = "activeZoomImg";
                 img.src = url;
-                body.appendChild(img);
-                hint.innerText = "Tip: Gallery mein save karne ke liye photo par long-press karein";
+                img.draggable = false;
+                content.appendChild(img);
+                hint.innerText = "Pinch ya double-tap se zoom karein • Swipe se next/prev";
             } else {
                 const vid = document.createElement("video");
-                vid.src = url;
+                vid.src = buildWorkerUrl(url, item.name, false);
                 vid.controls = true;
                 vid.autoplay = true;
                 vid.playsInline = true;
-                body.appendChild(vid);
-                hint.innerText = "";
+                content.appendChild(vid);
+                hint.innerText = "Swipe se next/prev media dekhein";
             }
 
-            document.getElementById("viewerDownloadBtn").onclick = () => window.open(url, "_blank");
+            document.getElementById("viewerDownloadBtn").onclick = () => downloadSingleFileProperly(item);
             document.getElementById("viewerDeleteBtn").onclick = () => {
-                openConfirm("Bin mein bhejein?", `Kya aap "${item.name}" ko Recycle Bin mein move karna chahte hain?`, "Move to Bin", "btn-danger", () => {
-                    closeViewer();
-                    moveToTrash(item);
+                openConfirm("Bin mein bhejein?", `Kya aap "${item.name}" ko Recycle Bin mein move karna chahte hain?`, "Move to Bin", "btn-danger", async () => {
+                    await moveToTrash(item);
+                    if (currentMediaList.length === 0) {
+                        closeViewer();
+                    } else {
+                        const nextIdx = Math.min(currentMediaIndex, currentMediaList.length - 1);
+                        showMediaAtIndex(nextIdx);
+                    }
                 });
             };
+        }
 
-            viewer.classList.add("open");
+        function stepMedia(dir) {
+            const next = currentMediaIndex + dir;
+            if (next >= 0 && next < currentMediaList.length) showMediaAtIndex(next);
         }
 
         function closeViewer() {
-            const viewer = document.getElementById("mediaViewer");
-            viewer.classList.remove("open");
-            document.getElementById("viewerBody").innerHTML = "";
+            if (isViewerOpen) history.back();
         }
 
-        async function openExternalFile(item) {
-            showStatus("Link nikal rahe hain...", false);
-            const url = await getTelegramDirectUrl(item.fileId);
-            if (!url) return showStatus("File 20MB se badi hai ya expire ho gayi hai.");
-            showStatus("Opening...");
-            window.open(url, "_blank");
+        function closeViewerInternal() {
+            isViewerOpen = false;
+            document.getElementById("mediaViewer").classList.remove("open");
+            document.getElementById("viewerContent").innerHTML = "";
+            resetZoom();
         }
+
+        const viewerBody = document.getElementById("viewerBody");
+        function getTouchDist(t1, t2) {
+            return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+        }
+
+        viewerBody.addEventListener("touchstart", (e) => {
+            if (e.target.tagName === "VIDEO" || e.target.closest(".nav-arrow")) return;
+            const img = document.getElementById("activeZoomImg");
+
+            if (e.touches.length === 2 && img) {
+                isPinching = true;
+                isPanning = false;
+                pinchStartDist = getTouchDist(e.touches[0], e.touches[1]);
+                pinchStartScale = zScale;
+            } else if (e.touches.length === 1) {
+                const now = Date.now();
+                if (img && now - lastTapTime < 280) {
+                    if (zScale > 1.1) resetZoom();
+                    else { zScale = 2.5; zX = 0; zY = 0; applyZoomTransform(); }
+                    lastTapTime = 0;
+                    return;
+                }
+                lastTapTime = now;
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                if (zScale > 1.05 && img) {
+                    isPanning = true;
+                    panStartX = touchStartX - zX;
+                    panStartY = touchStartY - zY;
+                }
+            }
+        }, { passive: true });
+
+        viewerBody.addEventListener("touchmove", (e) => {
+            if (e.target.tagName === "VIDEO") return;
+            const img = document.getElementById("activeZoomImg");
+            if (!img) return;
+
+            if (isPinching && e.touches.length === 2) {
+                const dist = getTouchDist(e.touches[0], e.touches[1]);
+                zScale = Math.min(Math.max(pinchStartScale * (dist / pinchStartDist), 1), 4);
+                if (zScale <= 1.02) { zX = 0; zY = 0; }
+                applyZoomTransform();
+            } else if (isPanning && e.touches.length === 1 && zScale > 1.05) {
+                zX = e.touches[0].clientX - panStartX;
+                zY = e.touches[0].clientY - panStartY;
+                applyZoomTransform();
+            }
+        }, { passive: true });
+
+        viewerBody.addEventListener("touchend", (e) => {
+            if (e.target.tagName === "VIDEO" || e.target.closest(".nav-arrow")) return;
+
+            if (isPinching && e.touches.length < 2) {
+                isPinching = false;
+                if (zScale < 1.05) resetZoom();
+                return;
+            }
+            if (isPanning) {
+                isPanning = false;
+                return;
+            }
+            if (zScale <= 1.05 && e.changedTouches.length === 1) {
+                const dx = e.changedTouches[0].clientX - touchStartX;
+                const dy = e.changedTouches[0].clientY - touchStartY;
+                if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+                    if (dx < 0) stepMedia(1);
+                    else stepMedia(-1);
+                }
+            }
+        }, { passive: true });
+
+        window.addEventListener("keydown", (e) => {
+            if (!isViewerOpen) return;
+            if (e.key === "ArrowRight") stepMedia(1);
+            else if (e.key === "ArrowLeft") stepMedia(-1);
+            else if (e.key === "Escape") closeViewer();
+        });
 
         async function moveToTrash(item) {
             const idx = fileHistory.findIndex(x => x === item || JSON.stringify(x) === JSON.stringify(item));
@@ -792,4 +1280,3 @@
     </script>
 </body>
 </html>
-
