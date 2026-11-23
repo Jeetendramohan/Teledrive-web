@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex, nofollow">
-    <title>TeleCloud Drive v4</title>
+    <title>TeleCloud Drive v5</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         :root {
@@ -19,12 +19,13 @@
             --danger: #ef4444;
             --danger-soft: #fee2e2;
             --success: #16a34a;
+            --success-soft: #dcfce7;
             --radius: 14px;
             --shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif; -webkit-tap-highlight-color: transparent; }
-        body { background: var(--bg); color: var(--text); padding-bottom: 90px; min-height: 100vh; }
+        body { background: var(--bg); color: var(--text); padding-bottom: 100px; min-height: 100vh; }
 
         #loginScreen { max-width: 400px; margin: 48px auto; padding: 28px 24px; background: var(--surface); border-radius: 20px; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(15, 23, 42, 0.07); width: calc(100% - 32px); }
         .brand-header { text-align: center; margin-bottom: 24px; }
@@ -78,11 +79,6 @@
         .path-text { font-size: 13px; font-weight: 600; color: var(--primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .back-btn { background: var(--primary-soft); color: var(--primary); border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; flex-shrink: 0; }
 
-        #uploadProgressWrap { display: none; margin: 0 16px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
-        .progress-top { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: var(--text); }
-        .progress-track { width: 100%; height: 6px; background: var(--surface-2); border-radius: 99px; overflow: hidden; }
-        .progress-fill { height: 100%; width: 0%; background: var(--primary); transition: width 0.2s; }
-
         #fileContainer { padding: 4px 16px 16px; }
         .list-view { display: flex; flex-direction: column; gap: 8px; }
         .grid-view { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 10px; }
@@ -121,17 +117,40 @@
 
         .empty-msg { text-align: center; color: var(--muted); padding: 48px 20px; font-size: 14px; }
 
+        /* Floating Upload Queue Button */
+        #fabUploads { position: fixed; bottom: 22px; right: 18px; background: var(--primary); color: #fff; border: none; border-radius: 99px; height: 50px; padding: 0 18px; display: none; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; box-shadow: 0 8px 24px rgba(2, 132, 199, 0.35); cursor: pointer; z-index: 50; }
+        #fabUploads.visible { display: inline-flex; }
+        .fab-dot { width: 9px; height: 9px; border-radius: 50%; background: #4ade80; }
+        .fab-dot.pulse { background: #fde047; animation: pulseAnim 1s infinite; }
+        @keyframes pulseAnim { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.3); } }
+
+        /* Upload Queue Modal Styles */
+        .queue-section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--muted); letter-spacing: 0.5px; margin: 10px 0 6px; display: flex; justify-content: space-between; align-items: center; }
+        .queue-item { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+        .queue-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .queue-name { font-size: 13px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+        .queue-status { font-size: 11px; font-weight: 600; margin-top: 3px; color: var(--muted); }
+        .queue-status.uploading { color: var(--primary); }
+        .queue-status.done { color: var(--success); }
+        .queue-status.failed { color: var(--danger); }
+        .queue-bar-track { width: 100%; height: 5px; background: var(--border); border-radius: 99px; overflow: hidden; margin-top: 6px; }
+        .queue-bar-fill { height: 100%; background: var(--primary); transition: width 0.2s; }
+        .queue-btns { display: flex; gap: 5px; flex-shrink: 0; }
+        .q-btn { border: none; border-radius: 8px; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; }
+        .q-btn.cancel { background: var(--danger-soft); color: var(--danger); }
+        .q-btn.retry { background: var(--primary-soft); color: var(--primary); }
+
         /* Modals */
-        .modal-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 250; padding: 20px; }
+        .modal-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 250; padding: 16px; }
         .modal-backdrop.open { display: flex; }
-        .modal-card { background: var(--surface); border-radius: 18px; width: 100%; max-width: 360px; padding: 22px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); animation: pop 0.18s ease-out; max-height: 80vh; display: flex; flex-direction: column; }
+        .modal-card { background: var(--surface); border-radius: 18px; width: 100%; max-width: 390px; padding: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); animation: pop 0.18s ease-out; max-height: 82vh; display: flex; flex-direction: column; }
         @keyframes pop { from { transform: scale(0.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
-        .modal-desc { font-size: 14px; color: var(--muted); line-height: 1.45; margin-bottom: 16px; word-break: break-word; }
-        .modal-input { width: 100%; padding: 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 15px; margin-bottom: 16px; outline: none; }
+        .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .modal-desc { font-size: 14px; color: var(--muted); line-height: 1.45; margin-bottom: 14px; word-break: break-word; }
+        .modal-input { width: 100%; padding: 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 15px; margin-bottom: 14px; outline: none; }
         .modal-input:focus { border-color: var(--primary); }
         .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
-        .modal-list { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+        .modal-list { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; flex: 1; }
         .folder-opt { padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); font-size: 14px; font-weight: 500; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 8px; }
         .folder-opt:active { background: var(--primary-soft); border-color: var(--primary); }
 
@@ -156,7 +175,7 @@
         .viewer-bottom { padding: 12px 16px; display: flex; justify-content: center; gap: 12px; background: rgba(0,0,0,0.7); z-index: 5; }
         .viewer-hint { text-align: center; color: #94a3b8; font-size: 11px; padding: 4px 10px; background: rgba(0,0,0,0.7); }
 
-        #statusBar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #fff; padding: 10px 18px; border-radius: 99px; font-size: 13px; font-weight: 500; display: none; z-index: 300; box-shadow: 0 8px 20px rgba(0,0,0,0.25); max-width: 90%; text-align: center; }
+        #statusBar { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #fff; padding: 10px 18px; border-radius: 99px; font-size: 13px; font-weight: 500; display: none; z-index: 300; box-shadow: 0 8px 20px rgba(0,0,0,0.25); max-width: 90%; text-align: center; }
     </style>
 </head>
 <body>
@@ -239,15 +258,7 @@
             </div>
         </div>
 
-        <input type="file" id="fileInput" multiple style="display:none" onchange="handleUpload(this.files)">
-
-        <div id="uploadProgressWrap">
-            <div class="progress-top">
-                <span id="uploadFileName">Uploading...</span>
-                <span id="uploadPercent">0%</span>
-            </div>
-            <div class="progress-track"><div class="progress-fill" id="uploadFill"></div></div>
-        </div>
+        <input type="file" id="fileInput" multiple style="display:none" onchange="handleUploadSelection(this.files)">
 
         <div class="path-bar">
             <span class="path-text" id="pathDisplay">Home /</span>
@@ -255,6 +266,27 @@
         </div>
 
         <div id="fileContainer" class="list-view"></div>
+    </div>
+
+    <!-- Floating Upload Manager Button -->
+    <button id="fabUploads" onclick="openUploadModal()">
+        <span class="fab-dot" id="fabDot"></span>
+        <span id="fabText">Uploads</span>
+    </button>
+
+    <!-- Upload Manager Modal -->
+    <div class="modal-backdrop" id="uploadModal">
+        <div class="modal-card">
+            <div class="modal-title">
+                <span>Upload Manager</span>
+                <button class="mini-btn" onclick="closeModal('uploadModal')">✕</button>
+            </div>
+            <div class="modal-list" id="uploadQueueBody"></div>
+            <div class="modal-actions">
+                <button class="btn btn-soft" onclick="clearCompletedUploads()">Clear Completed</button>
+                <button class="btn btn-primary" onclick="closeModal('uploadModal')">Close</button>
+            </div>
+        </div>
     </div>
 
     <!-- Confirm Modal -->
@@ -277,6 +309,18 @@
             <div class="modal-actions">
                 <button class="btn btn-soft" onclick="closeModal('folderModal')">Cancel</button>
                 <button class="btn btn-primary" onclick="confirmCreateFolder()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rename Folder Modal -->
+    <div class="modal-backdrop" id="renameModal">
+        <div class="modal-card">
+            <div class="modal-title">Rename Folder</div>
+            <input type="text" id="renameFolderInput" class="modal-input" placeholder="Naya naam likhein...">
+            <div class="modal-actions">
+                <button class="btn btn-soft" onclick="closeModal('renameModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="confirmRenameFolder()">Save</button>
             </div>
         </div>
     </div>
@@ -350,6 +394,15 @@
         let selectedItems = new Set();
         let currentVisibleItems = [];
 
+        // Rename target
+        let folderToRename = null;
+
+        // Upload Queue Manager state
+        let uploadTasks = []; // { id, file, name, targetPath, status: 'queued'|'uploading'|'done'|'failed'|'cancelled', progress: 0, xhr: null }
+        let activeUploadCount = 0;
+        const MAX_CONCURRENT_UPLOADS = 2;
+        let wakeLock = null;
+
         // Media viewer state
         let currentMediaList = [];
         let currentMediaIndex = 0;
@@ -378,14 +431,41 @@
             pdf: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,
             download: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
             trash: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
+            rename: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`,
             restore: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>`
         };
+
+        // --- Screen Wake Lock & Reload Protection during Uploads ---
+        async function acquireWakeLock() {
+            try {
+                if ("wakeLock" in navigator && !wakeLock) {
+                    wakeLock = await navigator.wakeLock.request("screen");
+                    wakeLock.addEventListener("release", () => { wakeLock = null; });
+                }
+            } catch (e) {}
+        }
+
+        function releaseWakeLock() {
+            if (wakeLock) { try { wakeLock.release(); } catch(e) {} wakeLock = null; }
+        }
+
+        document.addEventListener("visibilitychange", () => {
+            const hasRunning = uploadTasks.some(t => t.status === "uploading" || t.status === "queued");
+            if (document.visibilityState === "visible" && hasRunning) acquireWakeLock();
+        });
+
+        window.addEventListener("beforeunload", (e) => {
+            if (uploadTasks.some(t => t.status === "uploading" || t.status === "queued")) {
+                e.preventDefault();
+                e.returnValue = "";
+            }
+        });
 
         // --- Hardware / Browser Back Button Handling ---
         history.replaceState({ view: "root" }, "");
 
         window.addEventListener("popstate", () => {
-            const modals = ["confirmModal", "folderModal", "moveModal", "dlChoiceModal"];
+            const modals = ["confirmModal", "folderModal", "renameModal", "moveModal", "dlChoiceModal", "uploadModal"];
             for (const m of modals) {
                 if (document.getElementById(m).classList.contains("open")) {
                     closeModal(m);
@@ -462,7 +542,6 @@
             return `${WORKER_URL}?url=${encodeURIComponent(tgUrl)}&name=${encodeURIComponent(fileName)}${forceDownload ? "&dl=1" : ""}`;
         }
 
-        // Proper Download via Cloudflare Worker (preserves filename & extension for Gallery)
         async function downloadSingleFileProperly(item) {
             showStatus(`Downloading ${item.name}...`, false);
             const tgUrl = await getTelegramDirectUrl(item.fileId);
@@ -589,6 +668,41 @@
 
         function goBack() {
             if (currentPath !== "/") history.back();
+        }
+
+        // --- Folder Rename ---
+        function openRenameModal(folderItem) {
+            folderToRename = folderItem;
+            const inp = document.getElementById("renameFolderInput");
+            inp.value = folderItem.name || "";
+            document.getElementById("renameModal").classList.add("open");
+            setTimeout(() => { inp.focus(); inp.select(); }, 100);
+        }
+
+        async function confirmRenameFolder() {
+            if (!folderToRename) return;
+            const newName = document.getElementById("renameFolderInput").value.trim().replace(/\//g, "");
+            if (!newName || newName === folderToRename.name) {
+                closeModal("renameModal");
+                return;
+            }
+            const basePath = folderToRename.path || "/";
+            const oldPrefix = basePath + folderToRename.name + "/";
+            const newPrefix = basePath + newName + "/";
+
+            folderToRename.name = newName;
+            // Update paths of all nested files and folders
+            fileHistory.forEach(item => {
+                if (item.path && item.path.startsWith(oldPrefix)) {
+                    item.path = newPrefix + item.path.slice(oldPrefix.length);
+                }
+            });
+
+            closeModal("renameModal");
+            folderToRename = null;
+            renderFiles();
+            await syncToCloud();
+            showStatus("Folder rename ho gaya!");
         }
 
         // --- Multi-Select Logic ---
@@ -736,7 +850,6 @@
             closeModal("moveModal");
             let movedCount = 0;
             selectedItems.forEach(item => {
-                // Prevent moving a folder into itself
                 if (item.type === "folder" && targetPath.startsWith((item.path || "/") + item.name + "/")) return;
                 item.path = targetPath;
                 movedCount++;
@@ -860,7 +973,6 @@
                 const card = document.createElement("div");
                 card.className = "item-card" + (isSelected ? " selected" : "");
 
-                // Long-press detection for mobile & PC
                 let lpTimer = null;
                 let lpTriggered = false;
 
@@ -920,7 +1032,14 @@
                 const actions = document.createElement("div");
                 actions.className = "item-actions";
 
-                if (!isFolder) {
+                if (isFolder) {
+                    const btnRen = document.createElement("button");
+                    btnRen.className = "mini-btn";
+                    btnRen.title = "Rename Folder";
+                    btnRen.innerHTML = ICONS.rename;
+                    btnRen.onclick = (e) => { e.stopPropagation(); openRenameModal(item); };
+                    actions.appendChild(btnRen);
+                } else {
                     const btnDl = document.createElement("button");
                     btnDl.className = "mini-btn";
                     btnDl.title = "Download";
@@ -960,7 +1079,7 @@
         }
 
         async function confirmCreateFolder() {
-            const name = document.getElementById("newFolderInput").value.trim();
+            const name = document.getElementById("newFolderInput").value.trim().replace(/\//g, "");
             if (!name) return;
             closeModal("folderModal");
             fileHistory.push({ type: "folder", name, path: currentPath });
@@ -969,9 +1088,273 @@
             showStatus("Folder ban gaya!");
         }
 
+        // --- Upload Manager & Queue ---
+        function openUploadModal() {
+            renderUploadQueue();
+            document.getElementById("uploadModal").classList.add("open");
+        }
+
+        function handleUploadSelection(files) {
+            if (inTrash) return showStatus("Pehle Recycle Bin se bahar aayein.");
+            if (!files || files.length === 0) return;
+
+            for (let i = 0; i < files.length; i++) {
+                uploadTasks.push({
+                    id: Date.now() + "_" + Math.random().toString(36).slice(2, 7),
+                    file: files[i],
+                    name: files[i].name,
+                    targetPath: currentPath,
+                    status: "queued",
+                    progress: 0,
+                    xhr: null
+                });
+            }
+            document.getElementById("fileInput").value = "";
+            updateUploadFab();
+            renderUploadQueue();
+            openUploadModal();
+            processUploadQueue();
+        }
+
+        function processUploadQueue() {
+            while (activeUploadCount < MAX_CONCURRENT_UPLOADS) {
+                const nextTask = uploadTasks.find(t => t.status === "queued");
+                if (!nextTask) break;
+                startUploadTask(nextTask);
+            }
+            const anyActive = uploadTasks.some(t => t.status === "uploading" || t.status === "queued");
+            if (anyActive) acquireWakeLock();
+            else releaseWakeLock();
+        }
+
+        async function startUploadTask(task) {
+            task.status = "uploading";
+            task.progress = 0;
+            activeUploadCount++;
+            updateUploadFab();
+            renderUploadQueue();
+
+            try {
+                const thumbBlob = await createImageThumbnail(task.file);
+                if (task.status === "cancelled") {
+                    activeUploadCount--;
+                    processUploadQueue();
+                    return;
+                }
+
+                const data = await uploadTaskWithXhr(task, thumbBlob);
+                if (task.status === "cancelled") return;
+
+                if (data && data.ok && data.result) {
+                    const r = data.result;
+                    const doc = r.document || r.video || (r.photo ? r.photo[r.photo.length - 1] : null);
+                    if (doc && doc.file_id) {
+                        const thumbId = (doc.thumbnail && doc.thumbnail.file_id) || (doc.thumb && doc.thumb.file_id) || "";
+                        fileHistory.push({
+                            type: "file",
+                            msgId: String(r.message_id),
+                            fileId: doc.file_id,
+                            name: task.name,
+                            path: task.targetPath,
+                            thumbFileId: thumbId
+                        });
+                        task.status = "done";
+                        task.progress = 100;
+                        task.file = null; // free memory
+                        await syncToCloud();
+                        renderFiles();
+                    } else {
+                        task.status = "failed";
+                    }
+                } else {
+                    task.status = "failed";
+                }
+            } catch (e) {
+                if (task.status !== "cancelled") task.status = "failed";
+            } finally {
+                task.xhr = null;
+                activeUploadCount = Math.max(0, activeUploadCount - 1);
+                updateUploadFab();
+                renderUploadQueue();
+                processUploadQueue();
+            }
+        }
+
+        function uploadTaskWithXhr(task, thumbBlob) {
+            return new Promise((resolve, reject) => {
+                const formData = new FormData();
+                formData.append("chat_id", chatId);
+                if (thumbBlob) formData.append("thumbnail", thumbBlob, "thumb.jpg");
+                formData.append("document", task.file, task.name);
+
+                const xhr = new XMLHttpRequest();
+                task.xhr = xhr;
+                xhr.open("POST", `https://api.telegram.org/bot${botToken}/sendDocument`);
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) {
+                        const p = Math.round((e.loaded / e.total) * 100);
+                        if (p !== task.progress) {
+                            task.progress = p;
+                            renderUploadQueue();
+                        }
+                    }
+                };
+                xhr.onload = () => {
+                    try { resolve(JSON.parse(xhr.responseText)); }
+                    catch (e) { reject(e); }
+                };
+                xhr.onerror = () => reject(new Error("Network error"));
+                xhr.onabort = () => reject(new Error("Cancelled"));
+                xhr.send(formData);
+            });
+        }
+
+        function cancelUploadTask(id) {
+            const task = uploadTasks.find(t => t.id === id);
+            if (!task) return;
+            task.status = "cancelled";
+            if (task.xhr) {
+                try { task.xhr.abort(); } catch(e) {}
+            }
+            updateUploadFab();
+            renderUploadQueue();
+            processUploadQueue();
+        }
+
+        function retryUploadTask(id) {
+            const task = uploadTasks.find(t => t.id === id);
+            if (!task || !task.file) return;
+            task.status = "queued";
+            task.progress = 0;
+            updateUploadFab();
+            renderUploadQueue();
+            processUploadQueue();
+        }
+
+        function removeUploadTask(id) {
+            uploadTasks = uploadTasks.filter(t => t.id !== id);
+            updateUploadFab();
+            renderUploadQueue();
+        }
+
+        function clearCompletedUploads() {
+            uploadTasks = uploadTasks.filter(t => t.status !== "done");
+            updateUploadFab();
+            renderUploadQueue();
+        }
+
+        function updateUploadFab() {
+            const fab = document.getElementById("fabUploads");
+            const dot = document.getElementById("fabDot");
+            const text = document.getElementById("fabText");
+            if (uploadTasks.length === 0) {
+                fab.classList.remove("visible");
+                return;
+            }
+            fab.classList.add("visible");
+            const active = uploadTasks.filter(t => t.status === "uploading" || t.status === "queued").length;
+            const done = uploadTasks.filter(t => t.status === "done").length;
+            if (active > 0) {
+                dot.className = "fab-dot pulse";
+                text.innerText = `Uploading (${active})`;
+            } else {
+                dot.className = "fab-dot";
+                text.innerText = `Uploads (${done} done)`;
+            }
+        }
+
+        function renderUploadQueue() {
+            const body = document.getElementById("uploadQueueBody");
+            if (!body) return;
+            body.innerHTML = "";
+
+            const activeList = uploadTasks.filter(t => t.status !== "done");
+            const doneList = uploadTasks.filter(t => t.status === "done");
+
+            if (uploadTasks.length === 0) {
+                body.innerHTML = `<div class="empty-msg" style="padding:24px;">Abhi koi upload nahi hai</div>`;
+                return;
+            }
+
+            if (activeList.length > 0) {
+                const title = document.createElement("div");
+                title.className = "queue-section-title";
+                title.innerText = `Active / Queue (${activeList.length})`;
+                body.appendChild(title);
+
+                activeList.forEach(t => {
+                    const div = document.createElement("div");
+                    div.className = "queue-item";
+
+                    let statusText = "Waiting in queue...";
+                    let statusCls = "";
+                    if (t.status === "uploading") { statusText = `Uploading... ${t.progress}%`; statusCls = "uploading"; }
+                    else if (t.status === "failed") { statusText = "Failed (Tap retry)"; statusCls = "failed"; }
+                    else if (t.status === "cancelled") { statusText = "Cancelled"; statusCls = "failed"; }
+
+                    div.innerHTML = `
+                        <div class="queue-top">
+                            <div class="queue-name"></div>
+                            <div class="queue-btns"></div>
+                        </div>
+                        <div class="queue-status ${statusCls}">${statusText}</div>
+                        ${t.status === "uploading" ? `<div class="queue-bar-track"><div class="queue-bar-fill" style="width:${t.progress}%"></div></div>` : ""}
+                    `;
+                    div.querySelector(".queue-name").innerText = t.name;
+
+                    const btns = div.querySelector(".queue-btns");
+                    if (t.status === "uploading" || t.status === "queued") {
+                        const cBtn = document.createElement("button");
+                        cBtn.className = "q-btn cancel";
+                        cBtn.title = "Cancel";
+                        cBtn.innerText = "✕";
+                        cBtn.onclick = () => cancelUploadTask(t.id);
+                        btns.appendChild(cBtn);
+                    } else {
+                        if (t.file) {
+                            const rBtn = document.createElement("button");
+                            rBtn.className = "q-btn retry";
+                            rBtn.title = "Retry";
+                            rBtn.innerText = "🔄";
+                            rBtn.onclick = () => retryUploadTask(t.id);
+                            btns.appendChild(rBtn);
+                        }
+                        const dBtn = document.createElement("button");
+                        dBtn.className = "q-btn cancel";
+                        dBtn.title = "Remove";
+                        dBtn.innerText = "✕";
+                        dBtn.onclick = () => removeUploadTask(t.id);
+                        btns.appendChild(dBtn);
+                    }
+                    body.appendChild(div);
+                });
+            }
+
+            if (doneList.length > 0) {
+                const title = document.createElement("div");
+                title.className = "queue-section-title";
+                title.innerText = `Completed (${doneList.length})`;
+                body.appendChild(title);
+
+                doneList.slice().reverse().forEach(t => {
+                    const div = document.createElement("div");
+                    div.className = "queue-item";
+                    div.innerHTML = `
+                        <div class="queue-top">
+                            <div class="queue-name"></div>
+                            <span style="color:var(--success);font-size:13px;font-weight:700;">✓</span>
+                        </div>
+                        <div class="queue-status done">Uploaded to ${t.targetPath}</div>
+                    `;
+                    div.querySelector(".queue-name").innerText = t.name;
+                    body.appendChild(div);
+                });
+            }
+        }
+
         function createImageThumbnail(file) {
             return new Promise((resolve) => {
-                if (!file.type.startsWith("image/")) return resolve(null);
+                if (!file || !file.type.startsWith("image/")) return resolve(null);
                 const img = new Image();
                 const objUrl = URL.createObjectURL(file);
                 img.onload = () => {
@@ -987,79 +1370,6 @@
                 img.onerror = () => { URL.revokeObjectURL(objUrl); resolve(null); };
                 img.src = objUrl;
             });
-        }
-
-        function uploadSingleFile(file, thumbBlob, onProgress) {
-            return new Promise((resolve, reject) => {
-                const formData = new FormData();
-                formData.append("chat_id", chatId);
-                if (thumbBlob) formData.append("thumbnail", thumbBlob, "thumb.jpg");
-                formData.append("document", file, file.name);
-
-                const xhr = new XMLHttpRequest();
-                xhr.open("POST", `https://api.telegram.org/bot${botToken}/sendDocument`);
-                xhr.upload.onprogress = (e) => {
-                    if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
-                };
-                xhr.onload = () => {
-                    try { resolve(JSON.parse(xhr.responseText)); }
-                    catch (e) { reject(e); }
-                };
-                xhr.onerror = () => reject(new Error("Network error"));
-                xhr.send(formData);
-            });
-        }
-
-        async function handleUpload(files) {
-            if (inTrash) return showStatus("Pehle Recycle Bin se bahar aayein.");
-            if (!files || files.length === 0) return;
-
-            const wrap = document.getElementById("uploadProgressWrap");
-            const nameEl = document.getElementById("uploadFileName");
-            const pctEl = document.getElementById("uploadPercent");
-            const fillEl = document.getElementById("uploadFill");
-            wrap.style.display = "block";
-
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                nameEl.innerText = `Uploading (${i + 1}/${files.length}): ${file.name}`;
-                pctEl.innerText = "0%";
-                fillEl.style.width = "0%";
-
-                try {
-                    const thumbBlob = await createImageThumbnail(file);
-                    const data = await uploadSingleFile(file, thumbBlob, (p) => {
-                        pctEl.innerText = p + "%";
-                        fillEl.style.width = p + "%";
-                    });
-
-                    if (data.ok && data.result) {
-                        const r = data.result;
-                        const doc = r.document || r.video || (r.photo ? r.photo[r.photo.length - 1] : null);
-                        if (doc && doc.file_id) {
-                            const thumbId = (doc.thumbnail && doc.thumbnail.file_id) || (doc.thumb && doc.thumb.file_id) || "";
-                            fileHistory.push({
-                                type: "file",
-                                msgId: String(r.message_id),
-                                fileId: doc.file_id,
-                                name: file.name,
-                                path: currentPath,
-                                thumbFileId: thumbId
-                            });
-                            await syncToCloud();
-                            renderFiles();
-                        }
-                    } else {
-                        showStatus(`Failed: ${file.name}`);
-                    }
-                } catch (e) {
-                    showStatus(`Upload error: ${file.name}`);
-                }
-            }
-
-            wrap.style.display = "none";
-            document.getElementById("fileInput").value = "";
-            showStatus("Upload complete!");
         }
 
         // --- Media Viewer with Zoom & Swipe ---
@@ -1280,3 +1590,4 @@
     </script>
 </body>
 </html>
+
