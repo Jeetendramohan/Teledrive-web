@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="robots" content="noindex, nofollow">
+    <title>TeleCloud Drive Web</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background: #f4f6f8; color: #222; padding-bottom: 80px; }
+        
+        /* Login Screen */
+        #loginScreen { max-width: 400px; margin: 60px auto; padding: 24px; background: #fff; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+        #loginScreen h2 { text-align: center; margin-bottom: 20px; color: #0088cc; }
+        .input-group { margin-bottom: 14px; }
+        .input-group label { display: block; font-size: 13px; color: #555; margin-bottom: 5px; font-weight: 600; }
+        .input-group input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 10px; font-size: 15px; outline: none; }
+        .input-group input:focus { border-color: #0088cc; }
+        .btn { border: none; border-radius: 10px; padding: 12px 16px; font-size: 14px; font-weight: 600; cursor: pointer; color: #fff; background: #0088cc; transition: 0.2s; }
+        .btn:active { transform: scale(0.97); }
+        .btn-full { width: 100%; font-size: 16px; padding: 14px; }
+        .btn-green { background: #2e7d32; }
+        .btn-red { background: #d32f2f; }
+        .btn-gray { background: #607d8b; }
+        .btn-purple { background: #7b1fa2; }
+        .btn-orange { background: #f57c00; }
+
+        /* Workspace */
+        #workspace { display: none; max-width: 800px; margin: 0 auto; }
+        .topbar { background: #fff; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .topbar h1 { font-size: 18px; color: #0088cc; }
+        .top-actions { display: flex; gap: 8px; }
+        .icon-btn { background: #f0f2f5; color: #333; border: none; border-radius: 8px; padding: 8px 10px; font-size: 14px; cursor: pointer; font-weight: 600; }
+
+        .toolbar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 12px 16px; background: #fff; border-bottom: 1px solid #eee; }
+        .toolbar .btn { padding: 10px 6px; font-size: 12px; text-align: center; }
+
+        .path-bar { padding: 10px 16px; font-size: 14px; font-weight: 600; color: #0088cc; background: #e3f2fd; display: flex; justify-content: space-between; align-items: center; }
+
+        /* File List & Grid */
+        #fileContainer { padding: 12px 16px; }
+        .list-view { display: flex; flex-direction: column; gap: 8px; }
+        .grid-view { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+
+        .item-card { background: #fff; border-radius: 12px; padding: 12px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 4px rgba(0,0,0,0.05); cursor: pointer; }
+        .grid-view .item-card { flex-direction: column; text-align: center; gap: 8px; padding: 14px 8px; }
+        .item-left { display: flex; align-items: center; gap: 12px; overflow: hidden; flex: 1; }
+        .grid-view .item-left { flex-direction: column; gap: 6px; width: 100%; }
+        .item-icon { font-size: 26px; flex-shrink: 0; }
+        .item-name { font-size: 14px; color: #222; word-break: break-word; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        .item-actions { display: flex; gap: 6px; flex-shrink: 0; margin-left: 8px; }
+        .grid-view .item-actions { margin-left: 0; }
+        .mini-btn { border: none; background: #f0f2f5; padding: 6px 8px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+
+        /* Status / Toast */
+        #statusBar { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 18px; border-radius: 24px; font-size: 13px; display: none; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.2); max-width: 90%; text-align: center; }
+        .empty-msg { text-align: center; color: #888; padding: 40px 20px; font-size: 15px; }
+    </style>
+</head>
+<body>
+
+    <!-- Login Screen -->
+    <div id="loginScreen">
+        <h2>☁️ TeleCloud Web</h2>
+        <div class="input-group">
+            <label>License Key</label>
+            <input type="text" id="inpKey" placeholder="e.g. VIP-DOST-1">
+        </div>
+        <div class="input-group">
+            <label>Telegram Bot Token</label>
+            <input type="text" id="inpToken" placeholder="123456:ABC-DEF...">
+        </div>
+        <div class="input-group">
+            <label>Channel / Chat ID</label>
+            <input type="text" id="inpChatId" placeholder="e.g. -100123456789">
+        </div>
+        <button class="btn btn-green btn-full" onclick="login()">Enter Drive</button>
+    </div>
+
+    <!-- Main Workspace -->
+    <div id="workspace">
+        <div class="topbar">
+            <h1>☁️ TeleCloud</h1>
+            <div class="top-actions">
+                <button class="icon-btn" onclick="fetchFromCloud()" title="Reload">🔄</button>
+                <button class="icon-btn" onclick="logout()" title="Logout">🚪</button>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <button class="btn btn-green" onclick="createFolder()">+ Folder</button>
+            <button class="btn" onclick="document.getElementById('fileInput').click()">⬆️ Upload</button>
+            <button class="btn btn-gray" id="btnView" onclick="toggleView()">Grid</button>
+            <button class="btn btn-purple" id="btnTrash" onclick="toggleTrash()">♻️ Bin</button>
+        </div>
+
+        <input type="file" id="fileInput" multiple style="display:none" onchange="handleUpload(this.files)">
+
+        <div class="path-bar">
+            <span id="pathDisplay">Path: /</span>
+            <button class="mini-btn" id="btnBack" style="display:none" onclick="goBack()">⬅️ Back</button>
+        </div>
+
+        <div id="fileContainer" class="list-view"></div>
+    </div>
+
+    <div id="statusBar"></div>
+
+    <script>
+        const FIREBASE_URL = "https://teledrive300-default-rtdb.firebaseio.com/";
+        let licenseKey = localStorage.getItem("td_key") || "";
+        let botToken = localStorage.getItem("td_token") || "";
+        let chatId = localStorage.getItem("td_chatId") || "";
+
+        let fileHistory = [];
+        let trashHistory = [];
+        let currentPath = "/";
+        let inTrash = false;
+        let isGrid = localStorage.getItem("td_grid") === "true";
+
+        function showStatus(msg, autoHide = true) {
+            const bar = document.getElementById("statusBar");
+            bar.innerText = msg;
+            bar.style.display = "block";
+            clearTimeout(window.statusTimer);
+            if (autoHide) window.statusTimer = setTimeout(() => bar.style.display = "none", 3000);
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+        }
+
+        async function login() {
+            const k = document.getElementById("inpKey").value.trim();
+            const t = document.getElementById("inpToken").value.trim();
+            const c = document.getElementById("inpChatId").value.trim();
+            if (!k || !t || !c) return showStatus("Saari details bhariye!");
+
+            showStatus("Verifying Key...", false);
+            try {
+                const res = await fetch(`${FIREBASE_URL}valid_keys/${encodeURIComponent(k)}.json`);
+                const val = await res.json();
+                if (val === true || val === "true") {
+                    licenseKey = k; botToken = t; chatId = c;
+                    localStorage.setItem("td_key", k);
+                    localStorage.setItem("td_token", t);
+                    localStorage.setItem("td_chatId", c);
+                    openWorkspace();
+                } else {
+                    showStatus("Invalid License Key!");
+                }
+            } catch (e) {
+                showStatus("Network error! Dobara try karein.");
+            }
+        }
+
+        function logout() {
+            if (!confirm("Logout karna chahte hain?")) return;
+            localStorage.removeItem("td_key");
+            localStorage.removeItem("td_token");
+            localStorage.removeItem("td_chatId");
+            location.reload();
+        }
+
+        function openWorkspace() {
+            document.getElementById("loginScreen").style.display = "none";
+            document.getElementById("workspace").style.display = "block";
+            updateViewUI();
+            fetchFromCloud();
+        }
+
+        async function fetchFromCloud() {
+            showStatus("Loading files...", false);
+            try {
+                const res = await fetch(`${FIREBASE_URL}users/${encodeURIComponent(licenseKey)}/channels/${encodeURIComponent(chatId)}.json`);
+                const data = await res.json();
+                fileHistory = (data && Array.isArray(data.fileHistory)) ? data.fileHistory : [];
+                trashHistory = (data && Array.isArray(data.trashHistory)) ? data.trashHistory : [];
+                renderFiles();
+                showStatus("Synced!");
+            } catch (e) {
+                showStatus("Data load nahi ho paya.");
+            }
+        }
+
+        async function syncToCloud() {
+            try {
+                await fetch(`${FIREBASE_URL}users/${encodeURIComponent(licenseKey)}/channels/${encodeURIComponent(chatId)}.json`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ fileHistory, trashHistory })
+                });
+            } catch (e) {
+                showStatus("Cloud sync fail ho gaya.");
+            }
+        }
+
+        function toggleView() {
+            isGrid = !isGrid;
+            localStorage.setItem("td_grid", isGrid);
+            updateViewUI();
+        }
+
+        function updateViewUI() {
+            const container = document.getElementById("fileContainer");
+            const btn = document.getElementById("btnView");
+            container.className = isGrid ? "grid-view" : "list-view";
+            btn.innerText = isGrid ? "List" : "Grid";
+        }
+
+        function toggleTrash() {
+            inTrash = !inTrash;
+            document.getElementById("btnTrash").innerText = inTrash ? "📁 Files" : "♻️ Bin";
+            renderFiles();
+        }
+
+        function goBack() {
+            if (currentPath === "/") return;
+            const parts = currentPath.split("/").filter(Boolean);
+            parts.pop();
+            currentPath = parts.length ? "/" + parts.join("/") + "/" : "/";
+            renderFiles();
+        }
+
+        function renderFiles() {
+            const container = document.getElementById("fileContainer");
+            const pathDisplay = document.getElementById("pathDisplay");
+            const btnBack = document.getElementById("btnBack");
+
+            container.innerHTML = "";
+
+            if (inTrash) {
+                pathDisplay.innerText = "♻️ Recycle Bin";
+                btnBack.style.display = "none";
+                if (trashHistory.length === 0) {
+                    container.innerHTML = `<div class="empty-msg">Recycle Bin khali hai</div>`;
+                    return;
+                }
+                trashHistory.forEach((item, idx) => {
+                    const card = document.createElement("div");
+                    card.className = "item-card";
+                    card.innerHTML = `
+                        <div class="item-left">
+                            <span class="item-icon">${item.type === "folder" ? "📁" : "📄"}</span>
+                            <span class="item-name">${escapeHtml(item.name)}</span>
+                        </div>
+                        <div class="item-actions">
+                            <button class="mini-btn" onclick="restoreItem(${idx}); event.stopPropagation();" title="Restore">♻️</button>
+                            <button class="mini-btn" onclick="deletePermanently(${idx}); event.stopPropagation();" title="Delete">🗑️</button>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+                return;
+            }
+
+            pathDisplay.innerText = "Path: " + currentPath;
+            btnBack.style.display = currentPath === "/" ? "none" : "inline-block";
+
+            const folders = fileHistory.filter(i => (i.path || "/") === currentPath && i.type === "folder")
+                .sort((a, b) => a.name.localeCompare(b.name));
+            const files = fileHistory.filter(i => (i.path || "/") === currentPath && i.type !== "folder").reverse();
+
+            const items = [...folders, ...files];
+            if (items.length === 0) {
+                container.innerHTML = `<div class="empty-msg">Yahan koi file nahi hai</div>`;
+                return;
+            }
+
+            items.forEach(item => {
+                const isFolder = item.type === "folder";
+                const card = document.createElement("div");
+                card.className = "item-card";
+                card.onclick = () => isFolder ? openFolder(item.name) : openFile(item);
+
+                const icon = isFolder ? "📁" : getFileIcon(item.name);
+                card.innerHTML = `
+                    <div class="item-left">
+                        <span class="item-icon">${icon}</span>
+                        <span class="item-name">${escapeHtml(item.name)}</span>
+                    </div>
+                    <div class="item-actions">
+                        ${!isFolder ? `<button class="mini-btn" onclick='openFile(${JSON.stringify(item).replace(/'/g, "&#39;")}); event.stopPropagation();' title="Download">📥</button>` : ""}
+                        <button class="mini-btn" onclick='moveToTrash(${JSON.stringify(item).replace(/'/g, "&#39;")}); event.stopPropagation();' title="Delete">🗑️</button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function getFileIcon(name = "") {
+            const n = name.toLowerCase();
+            if (/\.(jpg|jpeg|png|webp|gif)$/.test(n)) return "🖼️";
+            if (/\.(mp4|mkv|avi|mov)$/.test(n)) return "🎬";
+            if (/\.pdf$/.test(n)) return "📕";
+            if (/\.(mp3|wav|m4a)$/.test(n)) return "🎵";
+            return "📄";
+        }
+
+        function openFolder(name) {
+            currentPath = currentPath + name + "/";
+            renderFiles();
+        }
+
+        async function createFolder() {
+            if (inTrash) return showStatus("Pehle Recycle Bin se bahar aayein.");
+            const name = prompt("Naye folder ka naam likhein:");
+            if (!name || !name.trim()) return;
+            fileHistory.push({ type: "folder", name: name.trim(), path: currentPath });
+            renderFiles();
+            await syncToCloud();
+            showStatus("Folder ban gaya!");
+        }
+
+        async function handleUpload(files) {
+            if (inTrash) return showStatus("Pehle Recycle Bin se bahar aayein.");
+            if (!files || files.length === 0) return;
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                showStatus(`Uploading (${i+1}/${files.length}): ${file.name}...`, false);
+                const formData = new FormData();
+                formData.append("chat_id", chatId);
+                formData.append("document", file);
+
+                try {
+                    const res = await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
+                        method: "POST",
+                        body: formData
+                    });
+                    const data = await res.json();
+                    if (data.ok && data.result) {
+                        const r = data.result;
+                        const doc = r.document || r.video || (r.photo ? r.photo[r.photo.length - 1] : null);
+                        if (doc && doc.file_id) {
+                            const thumbId = (doc.thumbnail && doc.thumbnail.file_id) || (doc.thumb && doc.thumb.file_id) || "";
+                            fileHistory.push({
+                                type: "file",
+                                msgId: String(r.message_id),
+                                fileId: doc.file_id,
+                                name: file.name,
+                                path: currentPath,
+                                thumbFileId: thumbId
+                            });
+                            await syncToCloud();
+                            renderFiles();
+                        }
+                    } else {
+                        showStatus(`Failed: ${file.name}`);
+                    }
+                } catch (e) {
+                    showStatus(`Upload error: ${file.name}`);
+                }
+            }
+            document.getElementById("fileInput").value = "";
+            showStatus("Upload complete!");
+        }
+
+        async function openFile(item) {
+            showStatus("File link nikal rahe hain...", false);
+            try {
+                const res = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${encodeURIComponent(item.fileId)}`);
+                const data = await res.json();
+                if (data.ok && data.result && data.result.file_path) {
+                    const url = `https://api.telegram.org/file/bot${botToken}/${data.result.file_path}`;
+                    showStatus("Opening file...");
+                    window.open(url, "_blank");
+                } else {
+                    showStatus("File 20MB se badi hai ya expire ho gayi hai.");
+                }
+            } catch (e) {
+                showStatus("File open nahi ho payi.");
+            }
+        }
+
+        async function moveToTrash(item) {
+            const idx = fileHistory.findIndex(x => JSON.stringify(x) === JSON.stringify(item));
+            if (idx !== -1) {
+                fileHistory.splice(idx, 1);
+                trashHistory.push(item);
+                renderFiles();
+                await syncToCloud();
+                showStatus("Bin mein bhej diya!");
+            }
+        }
+
+        async function restoreItem(idx) {
+            const item = trashHistory.splice(idx, 1)[0];
+            if (item) {
+                fileHistory.push(item);
+                renderFiles();
+                await syncToCloud();
+                showStatus("Restore ho gaya!");
+            }
+        }
+
+        async function deletePermanently(idx) {
+            if (!confirm("Hamesha ke liye delete karein?")) return;
+            const item = trashHistory[idx];
+            showStatus("Deleting...", false);
+            if (item.msgId) {
+                try {
+                    await fetch(`https://api.telegram.org/bot${botToken}/deleteMessage?chat_id=${encodeURIComponent(chatId)}&message_id=${encodeURIComponent(item.msgId)}`);
+                } catch (e) {}
+            }
+            trashHistory.splice(idx, 1);
+            renderFiles();
+            await syncToCloud();
+            showStatus("Permanently deleted!");
+        }
+
+        // Auto-login if saved
+        if (licenseKey && botToken && chatId) openWorkspace();
+    </script>
+</body>
+</html>
+
