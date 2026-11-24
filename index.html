@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex, nofollow">
-    <title>TeleCloud Drive v8</title>
+    <title>TeleCloud Drive v8.1</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         :root {
@@ -66,7 +66,8 @@
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif; -webkit-tap-highlight-color: transparent; }
-        body { background: var(--bg); color: var(--text); padding-bottom: 100px; min-height: 100vh; transition: background 0.2s, color 0.2s; }
+        html, body { overflow-anchor: none; }
+        body { background: var(--bg); color: var(--text); padding-bottom: 110px; min-height: 100vh; transition: background 0.2s, color 0.2s; }
 
         #loginScreen { max-width: 400px; margin: 48px auto; padding: 28px 24px; background: var(--surface); border-radius: 20px; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12); width: calc(100% - 32px); }
         .brand-header { text-align: center; margin-bottom: 24px; }
@@ -90,7 +91,8 @@
 
         #workspace { display: none; max-width: 1180px; margin: 0 auto; }
 
-        .topbar { background: var(--topbar-bg); backdrop-filter: blur(10px); padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 20; border-bottom: 1px solid var(--border); }
+        /* Exact same fixed height (62px) for normalTopbar & batchBar so toggling causes 0px scroll jump */
+        .topbar { height: 62px; background: var(--topbar-bg); backdrop-filter: blur(10px); padding: 0 16px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 20; border-bottom: 1px solid var(--border); }
         .topbar-left { display: flex; align-items: center; gap: 10px; }
         .topbar-logo { width: 34px; height: 34px; background: var(--primary); color: #fff; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
         [data-theme="dark"] .topbar-logo { color: #0b1120; }
@@ -100,16 +102,27 @@
         .icon-btn:hover { border-color: var(--border); }
         .icon-btn:active { transform: scale(0.93); }
 
-        #batchBar { display: none; background: var(--batch-bg); backdrop-filter: blur(10px); color: var(--text); padding: 10px 14px; position: sticky; top: 0; z-index: 30; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1.5px solid var(--batch-border); box-shadow: 0 4px 14px rgba(2, 132, 199, 0.1); }
+        #batchBar { height: 62px; display: none; background: var(--batch-bg); backdrop-filter: blur(10px); color: var(--text); padding: 0 16px; position: sticky; top: 0; z-index: 30; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1.5px solid var(--batch-border); box-shadow: 0 4px 14px rgba(2, 132, 199, 0.08); }
         #batchBar.active { display: flex; }
-        .batch-left { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; color: var(--primary); }
-        .batch-actions { display: flex; gap: 6px; align-items: center; }
-        .batch-btn { background: var(--surface); color: var(--text); border: 1px solid var(--batch-border); border-radius: 10px; height: 36px; min-width: 36px; padding: 0 9px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; transition: 0.15s; }
-        .batch-btn:active { transform: scale(0.94); background: var(--primary-soft); }
-        .batch-btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
-        [data-theme="dark"] .batch-btn.primary { color: #0b1120; }
-        .batch-btn.danger { background: var(--danger-soft); color: var(--danger); border-color: var(--danger-border); }
-        .batch-btn.success { background: var(--success-soft); color: var(--success); border-color: var(--success-border); }
+        .batch-left { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; color: var(--primary); }
+        .batch-top-btn { background: var(--surface); color: var(--text); border: 1px solid var(--batch-border); border-radius: 10px; height: 36px; padding: 0 12px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: 0.15s; }
+        .batch-top-btn.icon-only { width: 36px; padding: 0; }
+        .batch-top-btn:active { transform: scale(0.95); background: var(--primary-soft); }
+
+        /* Floating Bottom Action Bar (Option 1 - Safe from accidental clicks) */
+        #bottomActionBar { position: fixed; bottom: 14px; left: 12px; right: 12px; z-index: 60; display: none; justify-content: center; pointer-events: none; }
+        #bottomActionBar.active { display: flex; animation: slideUpBar 0.18s ease-out; }
+        @keyframes slideUpBar { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .bottom-bar-inner { pointer-events: auto; width: 100%; max-width: 480px; background: var(--topbar-bg); backdrop-filter: blur(16px); border: 1px solid var(--border); border-radius: 18px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-around; gap: 6px; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.22); }
+        [data-theme="dark"] .bottom-bar-inner { box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55); }
+        .b-action-btn { flex: 1; min-width: 62px; background: transparent; border: none; border-radius: 12px; padding: 8px 6px; color: var(--text); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11.5px; font-weight: 600; cursor: pointer; transition: 0.15s; }
+        .b-action-btn:hover { background: var(--surface-2); }
+        .b-action-btn:active { transform: scale(0.94); background: var(--primary-soft); }
+        .b-action-btn.primary { color: var(--primary); }
+        .b-action-btn.success { color: var(--success); }
+        .b-action-btn.danger { color: var(--danger); }
+        .b-action-btn.danger:hover { background: var(--danger-soft); }
+        .b-action-div { width: 1px; height: 28px; background: var(--border); flex-shrink: 0; }
 
         .controls-wrap { padding: 12px 16px 6px; display: flex; flex-direction: column; gap: 10px; }
         .search-row { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; }
@@ -140,13 +153,12 @@
         .path-text { font-size: 13px; font-weight: 600; color: var(--primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .back-btn { background: var(--primary-soft); color: var(--primary); border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; flex-shrink: 0; }
 
-        #fileContainer { padding: 4px 16px 16px; }
+        #fileContainer { padding: 4px 16px 16px; overflow-anchor: none; }
         .list-view { display: flex; flex-direction: column; gap: 8px; }
         .grid-view { display: grid; grid-template-columns: repeat(var(--grid-cols, 3), minmax(0, 1fr)); gap: 10px; }
 
-        .item-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; transition: 0.15s; box-shadow: var(--shadow); position: relative; user-select: none; -webkit-user-select: none; }
+        .item-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; transition: border-color 0.15s, background 0.15s; box-shadow: var(--shadow); position: relative; user-select: none; -webkit-user-select: none; }
         .item-card:hover { border-color: var(--primary); }
-        .item-card:active { transform: scale(0.99); }
         .item-card.selected { border-color: var(--primary); background: var(--selected-bg); }
 
         .select-check { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--muted); background: var(--surface); display: none; align-items: center; justify-content: center; flex-shrink: 0; font-size: 12px; font-weight: 700; color: #fff; cursor: pointer; transition: 0.15s; }
@@ -154,7 +166,6 @@
         .item-card.selected .select-check { background: var(--primary); border-color: var(--primary); }
         [data-theme="dark"] .item-card.selected .select-check { color: #0b1120; }
 
-        /* PC Hover Checkbox for Easy Multi-Select */
         @media (hover: hover) {
             .item-card:hover .select-check { display: flex; }
         }
@@ -168,8 +179,9 @@
         .item-name { font-size: 14px; font-weight: 500; color: var(--text); word-break: break-word; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
         .item-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
+        /* Keep exact card height during multi-select so page never jumps */
         .item-actions { display: flex; gap: 4px; flex-shrink: 0; }
-        .multi-mode .item-actions { display: none; }
+        .multi-mode .item-actions { visibility: hidden; pointer-events: none; }
         .mini-btn { border: none; background: var(--surface-2); color: var(--muted); width: 34px; height: 34px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
         .mini-btn:hover { background: var(--border); color: var(--text); }
         .mini-btn.del:hover { background: var(--danger-soft); color: var(--danger); }
@@ -193,9 +205,10 @@
 
         .empty-msg { text-align: center; color: var(--muted); padding: 48px 20px; font-size: 14px; }
 
-        #fabUploads { position: fixed; bottom: 22px; right: 18px; background: var(--primary); color: #fff; border: none; border-radius: 99px; height: 50px; padding: 0 18px; display: none; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; box-shadow: 0 8px 24px rgba(2, 132, 199, 0.35); cursor: pointer; z-index: 50; }
+        #fabUploads { position: fixed; bottom: 22px; right: 18px; background: var(--primary); color: #fff; border: none; border-radius: 99px; height: 50px; padding: 0 18px; display: none; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; box-shadow: 0 8px 24px rgba(2, 132, 199, 0.35); cursor: pointer; z-index: 50; transition: bottom 0.2s ease; }
         [data-theme="dark"] #fabUploads { color: #0b1120; }
         #fabUploads.visible { display: inline-flex; }
+        #fabUploads.shifted { bottom: 92px; }
         .fab-dot { width: 9px; height: 9px; border-radius: 50%; background: #4ade80; }
         .fab-dot.pulse { background: #fde047; animation: pulseAnim 1s infinite; }
         .fab-dot.paused { background: #fb923c; }
@@ -220,17 +233,32 @@
 
         .modal-backdrop { position: fixed; inset: 0; background: rgba(2, 6, 23, 0.65); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 250; padding: 16px; }
         .modal-backdrop.open { display: flex; }
-        .modal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; width: 100%; max-width: 390px; padding: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); animation: pop 0.18s ease-out; max-height: 82vh; display: flex; flex-direction: column; }
+        .modal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; width: 100%; max-width: 410px; padding: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); animation: pop 0.18s ease-out; max-height: 82vh; display: flex; flex-direction: column; }
         @keyframes pop { from { transform: scale(0.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; color: var(--text); }
-        .modal-desc { font-size: 14px; color: var(--muted); line-height: 1.45; margin-bottom: 14px; word-break: break-word; }
-        .modal-input { width: 100%; padding: 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 15px; margin-bottom: 14px; outline: none; background: var(--bg); color: var(--text); }
+        .modal-desc { font-size: 13.5px; color: var(--muted); line-height: 1.45; margin-bottom: 12px; word-break: break-word; }
+        .modal-input { width: 100%; padding: 11px 13px; border: 1.5px solid var(--border); border-radius: 11px; font-size: 14px; margin-bottom: 12px; outline: none; background: var(--bg); color: var(--text); }
         .modal-input:focus { border-color: var(--primary); }
         .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; flex-wrap: wrap; }
-        .modal-list { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; flex: 1; }
-        .folder-opt { padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); font-size: 14px; font-weight: 500; text-align: left; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--text); }
+        .modal-list { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; flex: 1; }
+
+        .folder-opt { padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); font-size: 14px; font-weight: 500; text-align: left; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--text); transition: 0.15s; }
         .folder-opt.active { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); font-weight: 700; }
         .folder-opt:active { background: var(--primary-soft); border-color: var(--primary); }
+
+        /* Modern Tree Move Modal Items */
+        .move-row { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--text); font-size: 13.5px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; transition: 0.15s; text-align: left; }
+        .move-row:hover { border-color: var(--primary); background: var(--selected-bg); }
+        .move-row:active { transform: scale(0.99); }
+        .move-row.is-current { opacity: 0.65; cursor: default; }
+        .move-row.is-current:hover { border-color: var(--border); background: var(--bg); }
+        .move-row-left { display: flex; align-items: center; gap: 10px; overflow: hidden; flex: 1; }
+        .move-icon { width: 32px; height: 32px; border-radius: 9px; background: var(--folder-bg); color: var(--folder-color); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .move-icon.home-icon { background: var(--primary-soft); color: var(--primary); }
+        .move-name-wrap { overflow: hidden; flex: 1; }
+        .move-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .move-subpath { font-size: 11px; color: var(--muted); font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .current-badge { font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 99px; background: var(--surface-2); color: var(--muted); flex-shrink: 0; }
 
         #mediaViewer { position: fixed; inset: 0; background: #000; z-index: 200; display: none; flex-direction: column; user-select: none; }
         #mediaViewer.open { display: flex; }
@@ -303,14 +331,18 @@
             </div>
         </div>
 
+        <!-- Clean Top Selection Header (only Cancel + Count + Select All) -->
         <div id="batchBar">
             <div class="batch-left">
-                <button class="batch-btn" onclick="exitMultiSelect()" title="Cancel Selection">
+                <button class="batch-top-btn icon-only" onclick="exitMultiSelect()" title="Cancel Selection">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
                 <span id="selectedCountText">0 selected</span>
             </div>
-            <div class="batch-actions" id="batchActionsWrap"></div>
+            <button class="batch-top-btn" id="btnSelectAllTop" onclick="selectAllVisible()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                <span id="selectAllLabel">Select All</span>
+            </button>
         </div>
 
         <div class="controls-wrap">
@@ -353,6 +385,11 @@
         </div>
 
         <div id="fileContainer" class="list-view"></div>
+    </div>
+
+    <!-- Floating Bottom Multi-Select Action Bar -->
+    <div id="bottomActionBar">
+        <div class="bottom-bar-inner" id="bottomActionsWrap"></div>
     </div>
 
     <button id="fabUploads" onclick="openUploadModal()">
@@ -418,10 +455,14 @@
         </div>
     </div>
 
+    <!-- Modern Tree-View Move Modal -->
     <div class="modal-backdrop" id="moveModal">
         <div class="modal-card">
-            <div class="modal-title">Move to Folder</div>
-            <div class="modal-desc">Select a destination folder:</div>
+            <div class="modal-title">
+                <span>Move to Folder</span>
+                <button class="mini-btn" onclick="closeModal('moveModal')">✕</button>
+            </div>
+            <input type="text" id="moveSearchInput" class="modal-input" placeholder="Search folders..." oninput="renderMoveFolderList()">
             <div class="modal-list" id="moveFolderList"></div>
             <div class="modal-actions">
                 <button class="btn btn-soft" onclick="closeModal('moveModal')">Cancel</button>
@@ -468,7 +509,11 @@
     <script>
         const FIREBASE_URL = "https://teledrive300-default-rtdb.firebaseio.com/";
         const WORKER_URL = "https://teledrive-dl.mohanjeetendraom.workers.dev/";
-        const CHUNK_SIZE = 19 * 1024 * 1024; // 19 MB per chunk (under Telegram 20 MB Bot API download limit)
+        const CHUNK_SIZE = 19 * 1024 * 1024; // 19 MB per chunk
+
+        if ("scrollRestoration" in history) {
+            history.scrollRestoration = "manual";
+        }
 
         let licenseKey = localStorage.getItem("td_key") || "";
         let botToken = localStorage.getItem("td_token") || "";
@@ -482,7 +527,9 @@
         let sortMode = localStorage.getItem("td_sort") || "newest";
         let themeMode = localStorage.getItem("td_theme") || "light";
 
-        // Register Service Worker for unlimited streaming downloads
+        // Per-folder scroll memory (preserves position when returning from subfolders)
+        const scrollPositions = {};
+
         if ("serviceWorker" in navigator) {
             navigator.serviceWorker.register("./sw.js").catch(() => {});
         }
@@ -497,9 +544,7 @@
 
         function isDesktop() { return window.innerWidth >= 768; }
         function getSavedGridCols() {
-            if (isDesktop()) {
-                return Math.min(8, Math.max(2, parseInt(localStorage.getItem("td_grid_cols_pc")) || 6));
-            }
+            if (isDesktop()) return Math.min(8, Math.max(2, parseInt(localStorage.getItem("td_grid_cols_pc")) || 6));
             return Math.min(5, Math.max(2, parseInt(localStorage.getItem("td_grid_cols_mob")) || 3));
         }
         let gridCols = getSavedGridCols();
@@ -539,17 +584,18 @@
             moon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`,
             grid: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`,
             list: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,
+            home: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
             folder: `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>`,
+            folderSm: `<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>`,
             file: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,
             video: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><polygon points="10 9 15 12 10 15 10 9" fill="var(--primary)"/></svg>`,
             image: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`,
             pdf: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,
-            download: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
-            trash: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
-            rename: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`,
-            scissors: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>`,
-            restore: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>`,
-            selectAll: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
+            download: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
+            trash: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
+            rename: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`,
+            scissors: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>`,
+            restore: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>`,
             play: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>`,
             pause: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`,
             close: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`
@@ -729,19 +775,31 @@
             }
         });
 
+        function restoreScrollForPath(pathKey) {
+            const y = scrollPositions[pathKey] || 0;
+            requestAnimationFrame(() => window.scrollTo(0, y));
+        }
+
         history.replaceState({ view: "root" }, "");
         window.addEventListener("popstate", () => {
             const modals = ["confirmModal", "folderModal", "renameModal", "moveModal", "dlChoiceModal", "uploadModal", "sortModal"];
             for (const m of modals) {
                 if (document.getElementById(m).classList.contains("open")) { closeModal(m); return; }
             }
-            if (isViewerOpen) { closeViewerInternal(); return; }
-            if (isMultiSelect) { exitMultiSelectInternal(); return; }
+            if (isViewerOpen) {
+                closeViewerInternal(); // Keeps exact scroll position
+                return;
+            }
+            if (isMultiSelect) {
+                exitMultiSelectInternal(); // Keeps exact scroll position
+                return;
+            }
             if (inTrash) {
                 inTrash = false;
                 document.getElementById("btnTrash").classList.remove("trash-active");
                 document.getElementById("searchInput").value = "";
                 renderFiles();
+                restoreScrollForPath(currentPath);
                 return;
             }
             if (currentPath !== "/") {
@@ -750,6 +808,7 @@
                 currentPath = parts.length ? "/" + parts.join("/") + "/" : "/";
                 document.getElementById("searchInput").value = "";
                 renderFiles();
+                restoreScrollForPath(currentPath);
             }
         });
 
@@ -796,7 +855,6 @@
             return `${WORKER_URL}?url=${encodeURIComponent(tgUrl)}&name=${encodeURIComponent(fileName)}${forceDownload ? "&dl=1" : ""}`;
         }
 
-        // --- Download (Supports both Single Files & Unlimited Chunked Streaming via SW) ---
         async function downloadSingleFileProperly(item) {
             if (item.isChunked && Array.isArray(item.chunks) && item.chunks.length > 0) {
                 return downloadChunkedFileViaSW(item);
@@ -853,7 +911,6 @@
                 }
             } catch (e) {}
 
-            // Fallback: In-memory join (for browsers without SW support)
             showStatus("Service Worker unavailable. Downloading chunks...", false);
             try {
                 const blobs = [];
@@ -967,6 +1024,7 @@
             applyTheme();
             updateSortLabel();
             updateViewUI();
+            window.scrollTo(0, 0);
             fetchFromCloud();
             restorePendingUploadsFromDB();
         }
@@ -1098,11 +1156,13 @@
         function toggleTrash() {
             if (isMultiSelect) exitMultiSelect();
             if (!inTrash) {
+                scrollPositions[currentPath] = window.scrollY;
                 inTrash = true;
                 history.pushState({ view: "trash" }, "");
                 document.getElementById("btnTrash").classList.add("trash-active");
                 document.getElementById("searchInput").value = "";
                 renderFiles();
+                requestAnimationFrame(() => window.scrollTo(0, 0));
             } else {
                 history.back();
             }
@@ -1144,13 +1204,26 @@
             showStatus("Renamed successfully.");
         }
 
+        // --- Zero-Jump Multi-Select with Bottom Action Bar ---
+        function updateSelectionVisuals() {
+            const cards = document.querySelectorAll("#fileContainer .item-card");
+            cards.forEach(card => {
+                const isSel = selectedItems.has(card._item);
+                card.classList.toggle("selected", isSel);
+                const chk = card.querySelector(".select-check");
+                if (chk) chk.innerText = isSel ? "✓" : "";
+            });
+        }
+
         function enterMultiSelect(firstItem) {
             if (!isMultiSelect) {
                 isMultiSelect = true;
                 history.pushState({ view: "multiselect" }, "");
                 document.getElementById("normalTopbar").style.display = "none";
                 document.getElementById("batchBar").classList.add("active");
-                updateViewUI();
+                document.getElementById("bottomActionBar").classList.add("active");
+                document.getElementById("fabUploads").classList.add("shifted");
+                document.getElementById("fileContainer").classList.add("multi-mode");
             }
             if (firstItem) toggleItemSelection(firstItem);
         }
@@ -1162,37 +1235,47 @@
             selectedItems.clear();
             document.getElementById("normalTopbar").style.display = "flex";
             document.getElementById("batchBar").classList.remove("active");
-            updateViewUI();
-            renderFiles();
+            document.getElementById("bottomActionBar").classList.remove("active");
+            document.getElementById("fabUploads").classList.remove("shifted");
+            document.getElementById("fileContainer").classList.remove("multi-mode");
+            updateSelectionVisuals(); // No full re-render -> zero scroll jump
         }
 
         function updateBatchBarUI() {
             document.getElementById("selectedCountText").innerText = `${selectedItems.size} selected`;
-            const wrap = document.getElementById("batchActionsWrap");
+            const allSelected = selectedItems.size === currentVisibleItems.length && currentVisibleItems.length > 0;
+            document.getElementById("selectAllLabel").innerText = allSelected ? "Deselect All" : "Select All";
+
+            const wrap = document.getElementById("bottomActionsWrap");
             wrap.innerHTML = "";
 
-            const mkBtn = (icon, title, cls, fn, label = "") => {
+            const mkBtn = (icon, label, cls, fn) => {
                 const b = document.createElement("button");
-                b.className = "batch-btn " + cls;
-                b.title = title;
-                b.innerHTML = icon + (label ? `<span>${label}</span>` : "");
+                b.className = "b-action-btn " + cls;
+                b.innerHTML = `${icon}<span>${label}</span>`;
                 b.onclick = fn;
                 return b;
             };
 
-            wrap.appendChild(mkBtn(ICONS.selectAll, "Select All", "", selectAllVisible));
+            const mkDiv = () => {
+                const d = document.createElement("span");
+                d.className = "b-action-div";
+                return d;
+            };
 
             if (inTrash) {
-                wrap.appendChild(mkBtn(ICONS.restore, "Restore Selected", "success", executeBatchRestore));
-                wrap.appendChild(mkBtn(ICONS.trash, "Delete Permanently", "danger", confirmBatchPermanentDelete));
+                wrap.appendChild(mkBtn(ICONS.restore, "Restore", "success", executeBatchRestore));
+                wrap.appendChild(mkDiv());
+                wrap.appendChild(mkBtn(ICONS.trash, "Delete", "danger", confirmBatchPermanentDelete));
             } else {
                 if (selectedItems.size === 1) {
                     const onlyItem = [...selectedItems][0];
                     wrap.appendChild(mkBtn(ICONS.rename, "Rename", "", () => openRenameModal(onlyItem)));
                 }
                 wrap.appendChild(mkBtn(ICONS.download, "Download", "primary", openBatchDownloadModal));
-                wrap.appendChild(mkBtn(ICONS.scissors, "Move / Cut", "", openBatchMoveModal));
-                wrap.appendChild(mkBtn(ICONS.trash, "Move to Bin", "danger", confirmBatchDelete));
+                wrap.appendChild(mkBtn(ICONS.scissors, "Move", "", openBatchMoveModal));
+                wrap.appendChild(mkDiv());
+                wrap.appendChild(mkBtn(ICONS.trash, "Delete", "danger", confirmBatchDelete));
             }
         }
 
@@ -1202,15 +1285,16 @@
 
             if (selectedItems.size === 0 && isMultiSelect) { exitMultiSelect(); return; }
             updateBatchBarUI();
-            renderFiles();
+            updateSelectionVisuals(); // In-place update -> zero scroll jump
         }
 
         function selectAllVisible() {
-            if (selectedItems.size === currentVisibleItems.length && currentVisibleItems.length > 0) exitMultiSelect();
-            else {
+            if (selectedItems.size === currentVisibleItems.length && currentVisibleItems.length > 0) {
+                exitMultiSelect();
+            } else {
                 currentVisibleItems.forEach(i => selectedItems.add(i));
                 updateBatchBarUI();
-                renderFiles();
+                updateSelectionVisuals();
             }
         }
 
@@ -1222,8 +1306,7 @@
                 exitMultiSelect();
                 return;
             }
-            const hasChunked = filesOnly.some(f => f.isChunked);
-            if (hasChunked) {
+            if (filesOnly.some(f => f.isChunked)) {
                 startBatchNormalDownload();
                 return;
             }
@@ -1275,10 +1358,19 @@
             showStatus("ZIP download started.");
         }
 
+        // --- Modern Tree-View Move Modal ---
         function openBatchMoveModal() {
             if (selectedItems.size === 0) return;
+            document.getElementById("moveSearchInput").value = "";
+            renderMoveFolderList();
+            document.getElementById("moveModal").classList.add("open");
+        }
+
+        function renderMoveFolderList() {
             const listEl = document.getElementById("moveFolderList");
+            const q = document.getElementById("moveSearchInput").value.trim().toLowerCase();
             listEl.innerHTML = "";
+
             const folderPaths = ["/"];
             fileHistory.forEach(item => {
                 if (item.type === "folder") {
@@ -1286,15 +1378,66 @@
                     if (!folderPaths.includes(fp)) folderPaths.push(fp);
                 }
             });
-            folderPaths.sort();
-            folderPaths.forEach(fp => {
-                const btn = document.createElement("button");
-                btn.className = "folder-opt";
-                btn.innerText = fp === "/" ? "Home (/)" : fp;
-                btn.onclick = () => executeBatchMove(fp);
-                listEl.appendChild(btn);
+            folderPaths.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+
+            const filtered = folderPaths.filter(fp => {
+                if (!q) return true;
+                const label = fp === "/" ? "home" : fp.toLowerCase();
+                return label.includes(q);
             });
-            document.getElementById("moveModal").classList.add("open");
+
+            if (filtered.length === 0) {
+                listEl.innerHTML = `<div class="empty-msg" style="padding:20px;">No matching folders</div>`;
+                return;
+            }
+
+            filtered.forEach(fp => {
+                const isRoot = fp === "/";
+                const parts = fp.split("/").filter(Boolean);
+                const depth = parts.length;
+                const displayName = isRoot ? "Home" : parts[parts.length - 1];
+                const isCurrent = fp === currentPath;
+
+                // Prevent moving a folder into itself or its own subfolder
+                const isInvalidSelf = [...selectedItems].some(
+                    item => item.type === "folder" && fp.startsWith((item.path || "/") + item.name + "/")
+                );
+                if (isInvalidSelf) return;
+
+                const row = document.createElement("button");
+                row.className = "move-row" + (isCurrent ? " is-current" : "");
+                if (!q && depth > 0) {
+                    row.style.paddingLeft = `${12 + Math.min(depth - 1, 4) * 18}px`;
+                }
+
+                const left = document.createElement("div");
+                left.className = "move-row-left";
+
+                const iconWrap = document.createElement("div");
+                iconWrap.className = "move-icon" + (isRoot ? " home-icon" : "");
+                iconWrap.innerHTML = isRoot ? ICONS.home : ICONS.folderSm;
+
+                const nameWrap = document.createElement("div");
+                nameWrap.className = "move-name-wrap";
+                const parentHint = depth > 1 ? parts.slice(0, -1).join(" / ") : (isRoot ? "Root directory" : "Home");
+                nameWrap.innerHTML = `<div class="move-name"></div><div class="move-subpath"></div>`;
+                nameWrap.querySelector(".move-name").innerText = (depth > 1 && !q ? "↳ " : "") + displayName;
+                nameWrap.querySelector(".move-subpath").innerText = parentHint;
+
+                left.append(iconWrap, nameWrap);
+                row.appendChild(left);
+
+                if (isCurrent) {
+                    const badge = document.createElement("span");
+                    badge.className = "current-badge";
+                    badge.innerText = "Current";
+                    row.appendChild(badge);
+                } else {
+                    row.onclick = () => executeBatchMove(fp);
+                }
+
+                listEl.appendChild(row);
+            });
         }
 
         async function executeBatchMove(targetPath) {
@@ -1401,7 +1544,6 @@
             let lpTimer = null;
             let lpTriggered = false;
 
-            // Direct checkbox click (PC hover or mobile multi-select)
             checkEl.onclick = (e) => {
                 e.stopPropagation();
                 if (!isMultiSelect) enterMultiSelect(item);
@@ -1427,7 +1569,6 @@
 
             card.onclick = (e) => {
                 if (lpTriggered) { lpTriggered = false; return; }
-                // PC Ctrl+Click or Cmd+Click for instant multi-select
                 if (e.ctrlKey || e.metaKey) {
                     e.preventDefault();
                     if (!isMultiSelect) enterMultiSelect(item);
@@ -1464,6 +1605,7 @@
                 list.forEach(item => {
                     const isSelected = selectedItems.has(item);
                     const card = document.createElement("div");
+                    card._item = item;
                     card.className = "item-card" + (isSelected ? " selected" : "");
 
                     const check = document.createElement("div");
@@ -1541,6 +1683,7 @@
                 const isFolder = item.type === "folder";
                 const isSelected = selectedItems.has(item);
                 const card = document.createElement("div");
+                card._item = item;
                 card.className = "item-card" + (isSelected ? " selected" : "");
 
                 const check = document.createElement("div");
@@ -1602,10 +1745,12 @@
         }
 
         function openFolder(name) {
+            scrollPositions[currentPath] = window.scrollY;
             currentPath = currentPath + name + "/";
             history.pushState({ view: "folder", path: currentPath }, "");
             document.getElementById("searchInput").value = "";
             renderFiles();
+            requestAnimationFrame(() => window.scrollTo(0, 0));
         }
 
         function openFolderModal() {
@@ -1765,7 +1910,6 @@
                         task.status = "failed";
                     }
                 } else {
-                    // Chunked Upload for large files (> 19 MB)
                     const totalChunks = Math.ceil(task.file.size / CHUNK_SIZE);
                     if (!Array.isArray(task.uploadedChunks)) task.uploadedChunks = [];
 
@@ -1796,7 +1940,7 @@
                             const doc = r.document || r.video;
                             if (doc && doc.file_id) {
                                 task.uploadedChunks.push({ msgId: String(r.message_id), fileId: doc.file_id });
-                                await idbSaveTask(task); // Save progress so resume continues from next chunk
+                                await idbSaveTask(task);
                             } else {
                                 task.status = "failed";
                                 return;
