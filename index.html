@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex, nofollow">
-    <title>TeleCloud Drive v8.1</title>
+    <title>TeleCloud Drive v8.2</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         :root {
@@ -91,7 +91,6 @@
 
         #workspace { display: none; max-width: 1180px; margin: 0 auto; }
 
-        /* Exact same fixed height (62px) for normalTopbar & batchBar so toggling causes 0px scroll jump */
         .topbar { height: 62px; background: var(--topbar-bg); backdrop-filter: blur(10px); padding: 0 16px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 20; border-bottom: 1px solid var(--border); }
         .topbar-left { display: flex; align-items: center; gap: 10px; }
         .topbar-logo { width: 34px; height: 34px; background: var(--primary); color: #fff; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
@@ -109,7 +108,6 @@
         .batch-top-btn.icon-only { width: 36px; padding: 0; }
         .batch-top-btn:active { transform: scale(0.95); background: var(--primary-soft); }
 
-        /* Floating Bottom Action Bar (Option 1 - Safe from accidental clicks) */
         #bottomActionBar { position: fixed; bottom: 14px; left: 12px; right: 12px; z-index: 60; display: none; justify-content: center; pointer-events: none; }
         #bottomActionBar.active { display: flex; animation: slideUpBar 0.18s ease-out; }
         @keyframes slideUpBar { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
@@ -179,7 +177,6 @@
         .item-name { font-size: 14px; font-weight: 500; color: var(--text); word-break: break-word; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
         .item-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
-        /* Keep exact card height during multi-select so page never jumps */
         .item-actions { display: flex; gap: 4px; flex-shrink: 0; }
         .multi-mode .item-actions { visibility: hidden; pointer-events: none; }
         .mini-btn { border: none; background: var(--surface-2); color: var(--muted); width: 34px; height: 34px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
@@ -246,7 +243,6 @@
         .folder-opt.active { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); font-weight: 700; }
         .folder-opt:active { background: var(--primary-soft); border-color: var(--primary); }
 
-        /* Modern Tree Move Modal Items */
         .move-row { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--text); font-size: 13.5px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; transition: 0.15s; text-align: left; }
         .move-row:hover { border-color: var(--primary); background: var(--selected-bg); }
         .move-row:active { transform: scale(0.99); }
@@ -269,7 +265,8 @@
 
         .viewer-body { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; touch-action: none; }
         .viewer-body img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center center; will-change: transform; transition: filter 0.25s ease; }
-        .viewer-body img.blur-loading { filter: blur(8px); }
+        /* Instagram-style full-screen blurred preview while HD loads */
+        .viewer-body img.blur-loading { width: 100%; height: 100%; filter: blur(10px); }
         .viewer-body video { max-width: 100%; max-height: 100%; border-radius: 6px; object-fit: contain; }
 
         .hd-badge { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.82); color: #e2e8f0; padding: 5px 12px; border-radius: 99px; font-size: 11px; font-weight: 600; z-index: 12; pointer-events: none; backdrop-filter: blur(4px); }
@@ -331,7 +328,6 @@
             </div>
         </div>
 
-        <!-- Clean Top Selection Header (only Cancel + Count + Select All) -->
         <div id="batchBar">
             <div class="batch-left">
                 <button class="batch-top-btn icon-only" onclick="exitMultiSelect()" title="Cancel Selection">
@@ -387,7 +383,6 @@
         <div id="fileContainer" class="list-view"></div>
     </div>
 
-    <!-- Floating Bottom Multi-Select Action Bar -->
     <div id="bottomActionBar">
         <div class="bottom-bar-inner" id="bottomActionsWrap"></div>
     </div>
@@ -455,7 +450,6 @@
         </div>
     </div>
 
-    <!-- Modern Tree-View Move Modal -->
     <div class="modal-backdrop" id="moveModal">
         <div class="modal-card">
             <div class="modal-title">
@@ -527,7 +521,6 @@
         let sortMode = localStorage.getItem("td_sort") || "newest";
         let themeMode = localStorage.getItem("td_theme") || "light";
 
-        // Per-folder scroll memory (preserves position when returning from subfolders)
         const scrollPositions = {};
 
         if ("serviceWorker" in navigator) {
@@ -639,7 +632,8 @@
                     name: task.name,
                     targetPath: task.targetPath,
                     file: task.file,
-                    uploadedChunks: task.uploadedChunks || []
+                    uploadedChunks: task.uploadedChunks || [],
+                    thumbFileId: task.thumbFileId || ""
                 });
             } catch (e) {}
         }
@@ -668,6 +662,7 @@
                                     name: s.name,
                                     targetPath: s.targetPath || "/",
                                     uploadedChunks: s.uploadedChunks || [],
+                                    thumbFileId: s.thumbFileId || "",
                                     status: "paused",
                                     progress: 0,
                                     note: "Paused after reload",
@@ -786,14 +781,8 @@
             for (const m of modals) {
                 if (document.getElementById(m).classList.contains("open")) { closeModal(m); return; }
             }
-            if (isViewerOpen) {
-                closeViewerInternal(); // Keeps exact scroll position
-                return;
-            }
-            if (isMultiSelect) {
-                exitMultiSelectInternal(); // Keeps exact scroll position
-                return;
-            }
+            if (isViewerOpen) { closeViewerInternal(); return; }
+            if (isMultiSelect) { exitMultiSelectInternal(); return; }
             if (inTrash) {
                 inTrash = false;
                 document.getElementById("btnTrash").classList.remove("trash-active");
@@ -1204,7 +1193,6 @@
             showStatus("Renamed successfully.");
         }
 
-        // --- Zero-Jump Multi-Select with Bottom Action Bar ---
         function updateSelectionVisuals() {
             const cards = document.querySelectorAll("#fileContainer .item-card");
             cards.forEach(card => {
@@ -1238,7 +1226,7 @@
             document.getElementById("bottomActionBar").classList.remove("active");
             document.getElementById("fabUploads").classList.remove("shifted");
             document.getElementById("fileContainer").classList.remove("multi-mode");
-            updateSelectionVisuals(); // No full re-render -> zero scroll jump
+            updateSelectionVisuals();
         }
 
         function updateBatchBarUI() {
@@ -1285,7 +1273,7 @@
 
             if (selectedItems.size === 0 && isMultiSelect) { exitMultiSelect(); return; }
             updateBatchBarUI();
-            updateSelectionVisuals(); // In-place update -> zero scroll jump
+            updateSelectionVisuals();
         }
 
         function selectAllVisible() {
@@ -1358,7 +1346,6 @@
             showStatus("ZIP download started.");
         }
 
-        // --- Modern Tree-View Move Modal ---
         function openBatchMoveModal() {
             if (selectedItems.size === 0) return;
             document.getElementById("moveSearchInput").value = "";
@@ -1398,7 +1385,6 @@
                 const displayName = isRoot ? "Home" : parts[parts.length - 1];
                 const isCurrent = fp === currentPath;
 
-                // Prevent moving a folder into itself or its own subfolder
                 const isInvalidSelf = [...selectedItems].some(
                     item => item.type === "folder" && fp.startsWith((item.path || "/") + item.name + "/")
                 );
@@ -1771,7 +1757,7 @@
             showStatus("Folder created.");
         }
 
-        // --- Upload Manager (Single + Unlimited 19 MB Chunked Upload with Resume) ---
+        // --- Upload Manager (Single + Unlimited 19 MB Chunked Upload + Video/Image Thumbnails) ---
         function openUploadModal() {
             renderUploadQueue();
             document.getElementById("uploadModal").classList.add("open");
@@ -1788,6 +1774,7 @@
                     name: files[i].name,
                     targetPath: currentPath,
                     uploadedChunks: [],
+                    thumbFileId: "",
                     status: "queued",
                     progress: 0,
                     note: "",
@@ -1871,7 +1858,7 @@
                 const isLarge = task.file.size > CHUNK_SIZE;
 
                 if (!isLarge) {
-                    const thumbBlob = await createImageThumbnail(task.file);
+                    const thumbBlob = await createMediaThumbnail(task.file);
                     if (task.status === "cancelled" || task.status === "paused") return;
 
                     const data = await uploadBlobWithRetry(task, task.file, task.name, thumbBlob, (loaded, total) => {
@@ -1913,12 +1900,19 @@
                     const totalChunks = Math.ceil(task.file.size / CHUNK_SIZE);
                     if (!Array.isArray(task.uploadedChunks)) task.uploadedChunks = [];
 
+                    let firstChunkThumb = null;
+                    if (task.uploadedChunks.length === 0) {
+                        firstChunkThumb = await createMediaThumbnail(task.file);
+                        if (task.status === "cancelled" || task.status === "paused") return;
+                    }
+
                     for (let i = task.uploadedChunks.length; i < totalChunks; i++) {
                         if (task.status === "cancelled" || task.status === "paused") return;
 
                         const start = i * CHUNK_SIZE;
                         const end = Math.min(start + CHUNK_SIZE, task.file.size);
                         const chunkBlob = task.file.slice(start, end);
+                        const attachThumb = (i === 0) ? firstChunkThumb : null;
                         task.note = `Part ${i + 1} of ${totalChunks}`;
                         renderUploadQueue();
 
@@ -1926,7 +1920,7 @@
                             task,
                             chunkBlob,
                             `${task.name}.part${i + 1}`,
-                            null,
+                            attachThumb,
                             (loaded, total) => {
                                 const overall = Math.round(((i + (loaded / total)) / totalChunks) * 100);
                                 if (overall !== task.progress) { task.progress = overall; renderUploadQueue(); }
@@ -1939,6 +1933,13 @@
                             const r = data.result;
                             const doc = r.document || r.video;
                             if (doc && doc.file_id) {
+                                if (i === 0) {
+                                    const thumbId = (doc.thumbnail && doc.thumbnail.file_id) || (doc.thumb && doc.thumb.file_id) || "";
+                                    if (thumbId) {
+                                        task.thumbFileId = thumbId;
+                                        if (attachThumb) saveThumbToCache(thumbId, attachThumb);
+                                    }
+                                }
                                 task.uploadedChunks.push({ msgId: String(r.message_id), fileId: doc.file_id });
                                 await idbSaveTask(task);
                             } else {
@@ -1957,6 +1958,7 @@
                         name: task.name,
                         size: task.file.size,
                         path: task.targetPath,
+                        thumbFileId: task.thumbFileId || "",
                         chunks: task.uploadedChunks
                     });
                     task.status = "done";
@@ -2139,9 +2141,20 @@
             }
         }
 
+        // --- Thumbnail Generator (Images + Videos of any size) ---
+        function createMediaThumbnail(file) {
+            if (!file) return Promise.resolve(null);
+            if ((file.type && file.type.startsWith("image/")) || isImageFile(file.name)) {
+                return createImageThumbnail(file);
+            }
+            if ((file.type && file.type.startsWith("video/")) || isVideoFile(file.name)) {
+                return createVideoThumbnail(file);
+            }
+            return Promise.resolve(null);
+        }
+
         function createImageThumbnail(file) {
             return new Promise((resolve) => {
-                if (!file || !file.type || !file.type.startsWith("image/")) return resolve(null);
                 const img = new Image();
                 const objUrl = URL.createObjectURL(file);
                 img.onload = () => {
@@ -2155,6 +2168,52 @@
                 };
                 img.onerror = () => { URL.revokeObjectURL(objUrl); resolve(null); };
                 img.src = objUrl;
+            });
+        }
+
+        function createVideoThumbnail(file) {
+            return new Promise((resolve) => {
+                const video = document.createElement("video");
+                const objUrl = URL.createObjectURL(file);
+                let finished = false;
+
+                const done = (blob) => {
+                    if (finished) return;
+                    finished = true;
+                    clearTimeout(timer);
+                    URL.revokeObjectURL(objUrl);
+                    video.removeAttribute("src");
+                    video.load();
+                    resolve(blob);
+                };
+
+                const timer = setTimeout(() => done(null), 4500);
+
+                video.muted = true;
+                video.playsInline = true;
+                video.preload = "metadata";
+
+                video.onloadedmetadata = () => {
+                    const seekTo = (video.duration && isFinite(video.duration)) ? Math.min(1, video.duration * 0.1) : 0.1;
+                    try { video.currentTime = seekTo; } catch (e) { done(null); }
+                };
+
+                video.onseeked = () => {
+                    try {
+                        if (!video.videoWidth || !video.videoHeight) return done(null);
+                        const scale = Math.min(320 / video.videoWidth, 320 / video.videoHeight, 1);
+                        const canvas = document.createElement("canvas");
+                        canvas.width = Math.round(video.videoWidth * scale);
+                        canvas.height = Math.round(video.videoHeight * scale);
+                        canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+                        canvas.toBlob(blob => done(blob), "image/jpeg", 0.72);
+                    } catch (e) {
+                        done(null);
+                    }
+                };
+
+                video.onerror = () => done(null);
+                video.src = objUrl;
             });
         }
 
