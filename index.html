@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex, nofollow">
-    <title>TeleCloud Drive v7</title>
+    <title>TeleCloud Drive v8</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         :root {
@@ -100,7 +100,6 @@
         .icon-btn:hover { border-color: var(--border); }
         .icon-btn:active { transform: scale(0.93); }
 
-        /* Modern Theme-Matched Batch Bar */
         #batchBar { display: none; background: var(--batch-bg); backdrop-filter: blur(10px); color: var(--text); padding: 10px 14px; position: sticky; top: 0; z-index: 30; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1.5px solid var(--batch-border); box-shadow: 0 4px 14px rgba(2, 132, 199, 0.1); }
         #batchBar.active { display: flex; }
         .batch-left { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; color: var(--primary); }
@@ -150,10 +149,15 @@
         .item-card:active { transform: scale(0.99); }
         .item-card.selected { border-color: var(--primary); background: var(--selected-bg); }
 
-        .select-check { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--muted); background: var(--surface); display: none; align-items: center; justify-content: center; flex-shrink: 0; font-size: 12px; font-weight: 700; color: #fff; }
-        .multi-mode .select-check { display: flex; }
+        .select-check { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--muted); background: var(--surface); display: none; align-items: center; justify-content: center; flex-shrink: 0; font-size: 12px; font-weight: 700; color: #fff; cursor: pointer; transition: 0.15s; }
+        .multi-mode .select-check, .item-card.selected .select-check { display: flex; }
         .item-card.selected .select-check { background: var(--primary); border-color: var(--primary); }
         [data-theme="dark"] .item-card.selected .select-check { color: #0b1120; }
+
+        /* PC Hover Checkbox for Easy Multi-Select */
+        @media (hover: hover) {
+            .item-card:hover .select-check { display: flex; }
+        }
 
         .item-left { display: flex; align-items: center; gap: 12px; overflow: hidden; flex: 1; }
         .thumb-box { width: 46px; height: 46px; border-radius: 10px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; position: relative; }
@@ -189,7 +193,6 @@
 
         .empty-msg { text-align: center; color: var(--muted); padding: 48px 20px; font-size: 14px; }
 
-        /* Floating Upload Queue Button */
         #fabUploads { position: fixed; bottom: 22px; right: 18px; background: var(--primary); color: #fff; border: none; border-radius: 99px; height: 50px; padding: 0 18px; display: none; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; box-shadow: 0 8px 24px rgba(2, 132, 199, 0.35); cursor: pointer; z-index: 50; }
         [data-theme="dark"] #fabUploads { color: #0b1120; }
         #fabUploads.visible { display: inline-flex; }
@@ -198,7 +201,6 @@
         .fab-dot.paused { background: #fb923c; }
         @keyframes pulseAnim { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.3); } }
 
-        /* Upload Queue Modal Styles */
         .queue-section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--muted); letter-spacing: 0.5px; margin: 10px 0 6px; display: flex; justify-content: space-between; align-items: center; }
         .queue-item { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
         .queue-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
@@ -216,7 +218,6 @@
         .q-btn.retry { background: var(--primary-soft); color: var(--primary); }
         .q-btn.pause { background: var(--warn-soft); color: var(--warn); }
 
-        /* Modals */
         .modal-backdrop { position: fixed; inset: 0; background: rgba(2, 6, 23, 0.65); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 250; padding: 16px; }
         .modal-backdrop.open { display: flex; }
         .modal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; width: 100%; max-width: 390px; padding: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); animation: pop 0.18s ease-out; max-height: 82vh; display: flex; flex-direction: column; }
@@ -231,7 +232,6 @@
         .folder-opt.active { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); font-weight: 700; }
         .folder-opt:active { background: var(--primary-soft); border-color: var(--primary); }
 
-        /* Fullscreen Media Viewer */
         #mediaViewer { position: fixed; inset: 0; background: #000; z-index: 200; display: none; flex-direction: column; user-select: none; }
         #mediaViewer.open { display: flex; }
         .viewer-top { padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; color: #fff; gap: 10px; background: rgba(0,0,0,0.65); z-index: 5; }
@@ -284,7 +284,6 @@
     </div>
 
     <div id="workspace">
-        <!-- Normal Topbar -->
         <div class="topbar" id="normalTopbar">
             <div class="topbar-left">
                 <div class="topbar-logo">
@@ -304,7 +303,6 @@
             </div>
         </div>
 
-        <!-- Modern Multi-Select Batch Bar -->
         <div id="batchBar">
             <div class="batch-left">
                 <button class="batch-btn" onclick="exitMultiSelect()" title="Cancel Selection">
@@ -357,13 +355,11 @@
         <div id="fileContainer" class="list-view"></div>
     </div>
 
-    <!-- Floating Upload Manager Button -->
     <button id="fabUploads" onclick="openUploadModal()">
         <span class="fab-dot" id="fabDot"></span>
         <span id="fabText">Uploads</span>
     </button>
 
-    <!-- Upload Manager Modal -->
     <div class="modal-backdrop" id="uploadModal">
         <div class="modal-card">
             <div class="modal-title">
@@ -379,7 +375,6 @@
         </div>
     </div>
 
-    <!-- Sort Modal -->
     <div class="modal-backdrop" id="sortModal">
         <div class="modal-card">
             <div class="modal-title">Sort Files & Folders</div>
@@ -390,7 +385,6 @@
         </div>
     </div>
 
-    <!-- Confirm Modal -->
     <div class="modal-backdrop" id="confirmModal">
         <div class="modal-card">
             <div class="modal-title" id="confirmTitle">Confirm</div>
@@ -402,7 +396,6 @@
         </div>
     </div>
 
-    <!-- New Folder Modal -->
     <div class="modal-backdrop" id="folderModal">
         <div class="modal-card">
             <div class="modal-title">New Folder</div>
@@ -414,7 +407,6 @@
         </div>
     </div>
 
-    <!-- Rename File/Folder Modal -->
     <div class="modal-backdrop" id="renameModal">
         <div class="modal-card">
             <div class="modal-title" id="renameModalTitle">Rename</div>
@@ -426,7 +418,6 @@
         </div>
     </div>
 
-    <!-- Batch Move Modal -->
     <div class="modal-backdrop" id="moveModal">
         <div class="modal-card">
             <div class="modal-title">Move to Folder</div>
@@ -438,7 +429,6 @@
         </div>
     </div>
 
-    <!-- Batch Download Choice Modal -->
     <div class="modal-backdrop" id="dlChoiceModal">
         <div class="modal-card">
             <div class="modal-title">Download Options</div>
@@ -453,7 +443,6 @@
         </div>
     </div>
 
-    <!-- Fullscreen Media Viewer -->
     <div id="mediaViewer">
         <div class="viewer-top">
             <div class="viewer-title-wrap">
@@ -479,6 +468,7 @@
     <script>
         const FIREBASE_URL = "https://teledrive300-default-rtdb.firebaseio.com/";
         const WORKER_URL = "https://teledrive-dl.mohanjeetendraom.workers.dev/";
+        const CHUNK_SIZE = 19 * 1024 * 1024; // 19 MB per chunk (under Telegram 20 MB Bot API download limit)
 
         let licenseKey = localStorage.getItem("td_key") || "";
         let botToken = localStorage.getItem("td_token") || "";
@@ -492,6 +482,19 @@
         let sortMode = localStorage.getItem("td_sort") || "newest";
         let themeMode = localStorage.getItem("td_theme") || "light";
 
+        // Register Service Worker for unlimited streaming downloads
+        if ("serviceWorker" in navigator) {
+            navigator.serviceWorker.register("./sw.js").catch(() => {});
+        }
+
+        function formatBytes(bytes) {
+            if (!bytes || bytes <= 0) return "";
+            const units = ["B", "KB", "MB", "GB"];
+            let i = 0, val = bytes;
+            while (val >= 1024 && i < units.length - 1) { val /= 1024; i++; }
+            return `${val.toFixed(i >= 2 ? 1 : 0)} ${units[i]}`;
+        }
+
         function isDesktop() { return window.innerWidth >= 768; }
         function getSavedGridCols() {
             if (isDesktop()) {
@@ -501,39 +504,29 @@
         }
         let gridCols = getSavedGridCols();
 
-        // Multi-select state
         let isMultiSelect = false;
         let selectedItems = new Set();
         let currentVisibleItems = [];
-
-        // Rename target
         let itemToRename = null;
 
-        // Upload Queue Manager state (IndexedDB backed)
         let uploadTasks = [];
         let activeUploadCount = 0;
         const MAX_CONCURRENT_UPLOADS = 2;
         let wakeLock = null;
 
-        // Media viewer state + temporary in-memory preload (freed on close)
         let currentMediaList = [];
         let currentMediaIndex = 0;
         let isViewerOpen = false;
         const viewerPreloadMap = new Map();
 
-        // Zoom & Swipe state
         let zScale = 1, zX = 0, zY = 0;
         let lastTapTime = 0;
         let touchStartX = 0, touchStartY = 0;
         let panStartX = 0, panStartY = 0;
         let pinchStartDist = 0, pinchStartScale = 1;
         let isPinching = false, isPanning = false;
+        let gridPinchStartDist = 0, gridPinchActive = false;
 
-        // Grid pinch-to-resize state
-        let gridPinchStartDist = 0;
-        let gridPinchActive = false;
-
-        // Session URL cache & in-memory blob URLs for thumbnails
         const urlCache = JSON.parse(sessionStorage.getItem("td_url_cache") || "{}");
         const thumbObjectUrls = new Map();
 
@@ -562,13 +555,11 @@
             close: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`
         };
 
-        // --- Theme Handling ---
         function applyTheme() {
             document.documentElement.setAttribute("data-theme", themeMode);
             const btn = document.getElementById("btnTheme");
             if (btn) btn.innerHTML = themeMode === "dark" ? ICONS.sun : ICONS.moon;
         }
-
         function toggleTheme() {
             themeMode = themeMode === "dark" ? "light" : "dark";
             localStorage.setItem("td_theme", themeMode);
@@ -576,7 +567,7 @@
         }
         applyTheme();
 
-        // --- IndexedDB 1: Persistent Uploads across Page Refresh ---
+        // --- IndexedDB 1: Persistent Uploads ---
         const IDB_NAME = "TeleCloudUploadsDB";
         const IDB_STORE = "tasks";
 
@@ -586,9 +577,7 @@
                 const req = indexedDB.open(IDB_NAME, 1);
                 req.onupgradeneeded = (e) => {
                     const db = e.target.result;
-                    if (!db.objectStoreNames.contains(IDB_STORE)) {
-                        db.createObjectStore(IDB_STORE, { keyPath: "id" });
-                    }
+                    if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE, { keyPath: "id" });
                 };
                 req.onsuccess = () => resolve(req.result);
                 req.onerror = () => reject(req.error);
@@ -599,7 +588,13 @@
             try {
                 const db = await openUploadDB();
                 const tx = db.transaction(IDB_STORE, "readwrite");
-                tx.objectStore(IDB_STORE).put({ id: task.id, name: task.name, targetPath: task.targetPath, file: task.file });
+                tx.objectStore(IDB_STORE).put({
+                    id: task.id,
+                    name: task.name,
+                    targetPath: task.targetPath,
+                    file: task.file,
+                    uploadedChunks: task.uploadedChunks || []
+                });
             } catch (e) {}
         }
 
@@ -626,6 +621,7 @@
                                     file: s.file,
                                     name: s.name,
                                     targetPath: s.targetPath || "/",
+                                    uploadedChunks: s.uploadedChunks || [],
                                     status: "paused",
                                     progress: 0,
                                     note: "Paused after reload",
@@ -640,7 +636,7 @@
             } catch (e) {}
         }
 
-        // --- IndexedDB 2: Lightweight Local Thumbnail Cache (Max 500 small thumbs) ---
+        // --- IndexedDB 2: Lightweight Local Thumbnail Cache ---
         const THUMB_DB_NAME = "TeleCloudThumbCacheDB";
         const THUMB_STORE = "thumbs";
         const MAX_CACHED_THUMBS = 500;
@@ -685,14 +681,12 @@
         }
 
         async function saveThumbToCache(thumbId, blob) {
-            if (!thumbId || !blob || blob.size > 350000) return; // Only cache lightweight thumbnails (<350KB)
+            if (!thumbId || !blob || blob.size > 350000) return;
             try {
                 const db = await openThumbDB();
                 const tx = db.transaction(THUMB_STORE, "readwrite");
                 const store = tx.objectStore(THUMB_STORE);
                 store.put({ id: thumbId, blob, ts: Date.now() });
-
-                // Evict oldest entries if cache exceeds limit
                 const countReq = store.count();
                 countReq.onsuccess = () => {
                     if (countReq.result > MAX_CACHED_THUMBS) {
@@ -711,7 +705,6 @@
             } catch (e) {}
         }
 
-        // --- Screen Wake Lock & Reload Protection during Uploads ---
         async function acquireWakeLock() {
             try {
                 if ("wakeLock" in navigator && !wakeLock) {
@@ -720,7 +713,6 @@
                 }
             } catch (e) {}
         }
-
         function releaseWakeLock() {
             if (wakeLock) { try { wakeLock.release(); } catch (e) {} wakeLock = null; }
         }
@@ -737,25 +729,14 @@
             }
         });
 
-        // --- Hardware / Browser Back Button Handling ---
         history.replaceState({ view: "root" }, "");
-
         window.addEventListener("popstate", () => {
             const modals = ["confirmModal", "folderModal", "renameModal", "moveModal", "dlChoiceModal", "uploadModal", "sortModal"];
             for (const m of modals) {
-                if (document.getElementById(m).classList.contains("open")) {
-                    closeModal(m);
-                    return;
-                }
+                if (document.getElementById(m).classList.contains("open")) { closeModal(m); return; }
             }
-            if (isViewerOpen) {
-                closeViewerInternal();
-                return;
-            }
-            if (isMultiSelect) {
-                exitMultiSelectInternal();
-                return;
-            }
+            if (isViewerOpen) { closeViewerInternal(); return; }
+            if (isMultiSelect) { exitMultiSelectInternal(); return; }
             if (inTrash) {
                 inTrash = false;
                 document.getElementById("btnTrash").classList.remove("trash-active");
@@ -790,10 +771,7 @@
             document.getElementById("confirmModal").classList.add("open");
         }
 
-        function closeModal(id) {
-            document.getElementById(id).classList.remove("open");
-        }
-
+        function closeModal(id) { document.getElementById(id).classList.remove("open"); }
         function isImageFile(name = "") { return /\.(jpg|jpeg|png|webp|gif)$/i.test(name); }
         function isVideoFile(name = "") { return /\.(mp4|mkv|avi|mov|webm)$/i.test(name); }
         function isPdfFile(name = "") { return /\.pdf$/i.test(name); }
@@ -818,7 +796,11 @@
             return `${WORKER_URL}?url=${encodeURIComponent(tgUrl)}&name=${encodeURIComponent(fileName)}${forceDownload ? "&dl=1" : ""}`;
         }
 
+        // --- Download (Supports both Single Files & Unlimited Chunked Streaming via SW) ---
         async function downloadSingleFileProperly(item) {
+            if (item.isChunked && Array.isArray(item.chunks) && item.chunks.length > 0) {
+                return downloadChunkedFileViaSW(item);
+            }
             showStatus(`Downloading ${item.name}...`, false);
             const tgUrl = await getTelegramDirectUrl(item.fileId);
             if (!tgUrl) return showStatus("File exceeds the 20 MB Bot API limit or is unavailable.");
@@ -832,7 +814,72 @@
             showStatus("Download started.");
         }
 
-        // Lazy-load thumbnails with IndexedDB local cache
+        async function downloadChunkedFileViaSW(item) {
+            showStatus(`Preparing stream for ${item.name}...`, false);
+            acquireWakeLock();
+
+            try {
+                if ("serviceWorker" in navigator) {
+                    const reg = await navigator.serviceWorker.ready;
+                    const sw = reg.active || navigator.serviceWorker.controller;
+                    if (sw) {
+                        const dlId = Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+                        await new Promise((resolve, reject) => {
+                            const ch = new MessageChannel();
+                            ch.port1.onmessage = () => resolve();
+                            setTimeout(() => reject(new Error("SW timeout")), 4000);
+                            sw.postMessage({
+                                type: "REGISTER_DOWNLOAD",
+                                id: dlId,
+                                payload: {
+                                    name: item.name || "file",
+                                    size: item.size || 0,
+                                    chunks: item.chunks,
+                                    botToken,
+                                    workerUrl: WORKER_URL
+                                }
+                            }, [ch.port2]);
+                        });
+
+                        const streamUrl = `./sw-download/${dlId}/${encodeURIComponent(item.name || "file")}`;
+                        const iframe = document.createElement("iframe");
+                        iframe.style.display = "none";
+                        iframe.src = streamUrl;
+                        document.body.appendChild(iframe);
+                        setTimeout(() => iframe.remove(), 60000);
+                        showStatus("Streaming download started! Keep this tab open until complete.");
+                        return;
+                    }
+                }
+            } catch (e) {}
+
+            // Fallback: In-memory join (for browsers without SW support)
+            showStatus("Service Worker unavailable. Downloading chunks...", false);
+            try {
+                const blobs = [];
+                for (let i = 0; i < item.chunks.length; i++) {
+                    showStatus(`Downloading part ${i + 1}/${item.chunks.length}...`, false);
+                    const tgUrl = await getTelegramDirectUrl(item.chunks[i].fileId);
+                    if (!tgUrl) throw new Error("Chunk missing");
+                    const res = await fetch(buildWorkerUrl(tgUrl, `part_${i + 1}`, false));
+                    if (!res.ok) throw new Error("Fetch failed");
+                    blobs.push(await res.blob());
+                }
+                const merged = new Blob(blobs);
+                const objUrl = URL.createObjectURL(merged);
+                const a = document.createElement("a");
+                a.href = objUrl;
+                a.download = item.name || "file";
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(objUrl), 10000);
+                showStatus("Download complete.");
+            } catch (e) {
+                showStatus("Download failed. Please try again.");
+            }
+        }
+
         const thumbObserver = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (!entry.isIntersecting) return;
@@ -841,13 +888,11 @@
                 const fid = el.dataset.thumbId;
                 const isDedicatedThumb = el.dataset.isThumb === "1";
                 if (!fid) return;
-
                 loadThumbnailIntoElement(el, fid, isDedicatedThumb);
             });
         }, { rootMargin: "180px" });
 
         async function loadThumbnailIntoElement(el, fid, isDedicatedThumb) {
-            // 1. Try local IndexedDB cache first (0 API calls)
             const cachedUrl = await getCachedThumbUrl(fid);
             if (cachedUrl) {
                 const img = document.createElement("img");
@@ -857,11 +902,8 @@
                 el.appendChild(img);
                 return;
             }
-
-            // 2. Fetch from Telegram & cache lightweight thumbnails
             const tgUrl = await getTelegramDirectUrl(fid);
             if (!tgUrl) return;
-
             if (isDedicatedThumb) {
                 try {
                     const res = await fetch(buildWorkerUrl(tgUrl, "thumb.jpg", false));
@@ -879,8 +921,6 @@
                     }
                 } catch (e) {}
             }
-
-            // Fallback direct render
             const img = document.createElement("img");
             img.src = tgUrl;
             img.alt = "";
@@ -957,7 +997,6 @@
             }
         }
 
-        // --- Persistent Sorting ---
         const SORT_OPTIONS = [
             { id: "newest", label: "Newest First", short: "Newest" },
             { id: "oldest", label: "Oldest First", short: "Oldest" },
@@ -991,19 +1030,13 @@
 
         function applySortToList(arr, sourceArray) {
             const list = arr.slice();
-            if (sortMode === "name_asc") {
-                list.sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { numeric: true, sensitivity: "base" }));
-            } else if (sortMode === "name_desc") {
-                list.sort((a, b) => (b.name || "").localeCompare(a.name || "", undefined, { numeric: true, sensitivity: "base" }));
-            } else if (sortMode === "oldest") {
-                list.sort((a, b) => sourceArray.indexOf(a) - sourceArray.indexOf(b));
-            } else {
-                list.sort((a, b) => sourceArray.indexOf(b) - sourceArray.indexOf(a));
-            }
+            if (sortMode === "name_asc") list.sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { numeric: true, sensitivity: "base" }));
+            else if (sortMode === "name_desc") list.sort((a, b) => (b.name || "").localeCompare(a.name || "", undefined, { numeric: true, sensitivity: "base" }));
+            else if (sortMode === "oldest") list.sort((a, b) => sourceArray.indexOf(a) - sourceArray.indexOf(b));
+            else list.sort((a, b) => sourceArray.indexOf(b) - sourceArray.indexOf(a));
             return list;
         }
 
-        // --- View, PC Resize Buttons & Mobile Pinch-to-Resize ---
         function toggleView() {
             isGrid = !isGrid;
             localStorage.setItem("td_grid", isGrid);
@@ -1043,20 +1076,14 @@
         fileContainerEl.addEventListener("touchstart", (e) => {
             if (isGrid && e.touches.length === 2) {
                 gridPinchActive = true;
-                gridPinchStartDist = Math.hypot(
-                    e.touches[1].clientX - e.touches[0].clientX,
-                    e.touches[1].clientY - e.touches[0].clientY
-                );
+                gridPinchStartDist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
             }
         }, { passive: true });
 
         fileContainerEl.addEventListener("touchmove", (e) => {
             if (!gridPinchActive || !isGrid || e.touches.length !== 2) return;
             e.preventDefault();
-            const dist = Math.hypot(
-                e.touches[1].clientX - e.touches[0].clientX,
-                e.touches[1].clientY - e.touches[0].clientY
-            );
+            const dist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
             const delta = dist - gridPinchStartDist;
             if (Math.abs(delta) > 55) {
                 changeGridCols(delta > 0 ? -1 : 1);
@@ -1081,11 +1108,8 @@
             }
         }
 
-        function goBack() {
-            if (currentPath !== "/") history.back();
-        }
+        function goBack() { if (currentPath !== "/") history.back(); }
 
-        // --- Rename File or Folder ---
         function openRenameModal(item) {
             itemToRename = item;
             document.getElementById("renameModalTitle").innerText = item.type === "folder" ? "Rename Folder" : "Rename File";
@@ -1098,10 +1122,7 @@
         async function confirmRenameItem() {
             if (!itemToRename) return;
             const newName = document.getElementById("renameItemInput").value.trim().replace(/\//g, "");
-            if (!newName || newName === itemToRename.name) {
-                closeModal("renameModal");
-                return;
-            }
+            if (!newName || newName === itemToRename.name) { closeModal("renameModal"); return; }
 
             if (itemToRename.type === "folder") {
                 const basePath = itemToRename.path || "/";
@@ -1109,9 +1130,7 @@
                 const newPrefix = basePath + newName + "/";
                 itemToRename.name = newName;
                 fileHistory.forEach(it => {
-                    if (it.path && it.path.startsWith(oldPrefix)) {
-                        it.path = newPrefix + it.path.slice(oldPrefix.length);
-                    }
+                    if (it.path && it.path.startsWith(oldPrefix)) it.path = newPrefix + it.path.slice(oldPrefix.length);
                 });
             } else {
                 itemToRename.name = newName;
@@ -1125,7 +1144,6 @@
             showStatus("Renamed successfully.");
         }
 
-        // --- Multi-Select Logic (Normal + Recycle Bin) ---
         function enterMultiSelect(firstItem) {
             if (!isMultiSelect) {
                 isMultiSelect = true;
@@ -1137,9 +1155,7 @@
             if (firstItem) toggleItemSelection(firstItem);
         }
 
-        function exitMultiSelect() {
-            if (isMultiSelect) history.back();
-        }
+        function exitMultiSelect() { if (isMultiSelect) history.back(); }
 
         function exitMultiSelectInternal() {
             isMultiSelect = false;
@@ -1184,18 +1200,14 @@
             if (selectedItems.has(item)) selectedItems.delete(item);
             else selectedItems.add(item);
 
-            if (selectedItems.size === 0 && isMultiSelect) {
-                exitMultiSelect();
-                return;
-            }
+            if (selectedItems.size === 0 && isMultiSelect) { exitMultiSelect(); return; }
             updateBatchBarUI();
             renderFiles();
         }
 
         function selectAllVisible() {
-            if (selectedItems.size === currentVisibleItems.length && currentVisibleItems.length > 0) {
-                exitMultiSelect();
-            } else {
+            if (selectedItems.size === currentVisibleItems.length && currentVisibleItems.length > 0) exitMultiSelect();
+            else {
                 currentVisibleItems.forEach(i => selectedItems.add(i));
                 updateBatchBarUI();
                 renderFiles();
@@ -1210,6 +1222,11 @@
                 exitMultiSelect();
                 return;
             }
+            const hasChunked = filesOnly.some(f => f.isChunked);
+            if (hasChunked) {
+                startBatchNormalDownload();
+                return;
+            }
             document.getElementById("dlChoiceDesc").innerText = `${filesOnly.length} files selected. Choose a download method:`;
             document.getElementById("dlChoiceModal").classList.add("open");
         }
@@ -1218,29 +1235,19 @@
             const filesOnly = [...selectedItems].filter(i => i.type !== "folder");
             exitMultiSelect();
             for (let i = 0; i < filesOnly.length; i++) {
-                showStatus(`Downloading (${i + 1}/${filesOnly.length}): ${filesOnly[i].name}`, false);
-                const tgUrl = await getTelegramDirectUrl(filesOnly[i].fileId);
-                if (tgUrl) {
-                    const a = document.createElement("a");
-                    a.href = buildWorkerUrl(tgUrl, filesOnly[i].name || "file", true);
-                    a.download = filesOnly[i].name || "file";
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    await new Promise(r => setTimeout(r, 700));
-                }
+                await downloadSingleFileProperly(filesOnly[i]);
+                await new Promise(r => setTimeout(r, 800));
             }
             showStatus("All downloads started.");
         }
 
         async function startBatchZipDownload() {
-            const filesOnly = [...selectedItems].filter(i => i.type !== "folder");
+            const filesOnly = [...selectedItems].filter(i => i.type !== "folder" && !i.isChunked);
             exitMultiSelect();
             if (typeof JSZip === "undefined") return showStatus("ZIP library failed to load. Try downloading individually.");
 
             const zip = new JSZip();
             let added = 0;
-
             for (let i = 0; i < filesOnly.length; i++) {
                 const item = filesOnly[i];
                 showStatus(`Archiving (${i + 1}/${filesOnly.length}): ${item.name}...`, false);
@@ -1249,12 +1256,10 @@
                     if (!tgUrl) continue;
                     const res = await fetch(buildWorkerUrl(tgUrl, item.name, false));
                     if (!res.ok) continue;
-                    const blob = await res.blob();
-                    zip.file(item.name || `file_${i + 1}`, blob);
+                    zip.file(item.name || `file_${i + 1}`, await res.blob());
                     added++;
                 } catch (e) {}
             }
-
             if (added === 0) return showStatus("No files could be added to the ZIP archive.");
 
             showStatus("Generating ZIP archive...", false);
@@ -1274,7 +1279,6 @@
             if (selectedItems.size === 0) return;
             const listEl = document.getElementById("moveFolderList");
             listEl.innerHTML = "";
-
             const folderPaths = ["/"];
             fileHistory.forEach(item => {
                 if (item.type === "folder") {
@@ -1283,7 +1287,6 @@
                 }
             });
             folderPaths.sort();
-
             folderPaths.forEach(fp => {
                 const btn = document.createElement("button");
                 btn.className = "folder-opt";
@@ -1291,7 +1294,6 @@
                 btn.onclick = () => executeBatchMove(fp);
                 listEl.appendChild(btn);
             });
-
             document.getElementById("moveModal").classList.add("open");
         }
 
@@ -1316,10 +1318,7 @@
                 const toMove = [...selectedItems];
                 toMove.forEach(item => {
                     const idx = fileHistory.indexOf(item);
-                    if (idx !== -1) {
-                        fileHistory.splice(idx, 1);
-                        trashHistory.push(item);
-                    }
+                    if (idx !== -1) { fileHistory.splice(idx, 1); trashHistory.push(item); }
                 });
                 exitMultiSelect();
                 renderFiles();
@@ -1328,16 +1327,12 @@
             });
         }
 
-        // --- Recycle Bin Bulk Actions (Rate-limit safe) ---
         async function executeBatchRestore() {
             const toRestore = [...selectedItems];
             if (toRestore.length === 0) return;
             toRestore.forEach(item => {
                 const idx = trashHistory.indexOf(item);
-                if (idx !== -1) {
-                    trashHistory.splice(idx, 1);
-                    fileHistory.push(item);
-                }
+                if (idx !== -1) { trashHistory.splice(idx, 1); fileHistory.push(item); }
             });
             exitMultiSelect();
             renderFiles();
@@ -1358,9 +1353,20 @@
                         continue;
                     }
                     return;
-                } catch (e) {
-                    return;
+                } catch (e) { return; }
+            }
+        }
+
+        async function deleteItemFromTelegram(item) {
+            if (item.isChunked && Array.isArray(item.chunks)) {
+                for (let c = 0; c < item.chunks.length; c++) {
+                    if (item.chunks[c].msgId) {
+                        await deleteTelegramMessageSafe(item.chunks[c].msgId);
+                        if (item.chunks.length > 3) await new Promise(r => setTimeout(r, 250));
+                    }
                 }
+            } else if (item.msgId) {
+                await deleteTelegramMessageSafe(item.msgId);
             }
         }
 
@@ -1373,10 +1379,8 @@
                 for (let i = 0; i < toDelete.length; i++) {
                     const item = toDelete[i];
                     showStatus(`Deleting (${i + 1}/${toDelete.length})...`, false);
-                    if (item.msgId) {
-                        await deleteTelegramMessageSafe(item.msgId);
-                        if (toDelete.length > 3) await new Promise(r => setTimeout(r, 300));
-                    }
+                    await deleteItemFromTelegram(item);
+                    if (toDelete.length > 3) await new Promise(r => setTimeout(r, 250));
                     const idx = trashHistory.indexOf(item);
                     if (idx !== -1) trashHistory.splice(idx, 1);
                 }
@@ -1393,9 +1397,16 @@
             return ICONS.file;
         }
 
-        function attachLongPress(card, item, onShortClick) {
+        function attachInteractions(card, checkEl, item, onShortClick) {
             let lpTimer = null;
             let lpTriggered = false;
+
+            // Direct checkbox click (PC hover or mobile multi-select)
+            checkEl.onclick = (e) => {
+                e.stopPropagation();
+                if (!isMultiSelect) enterMultiSelect(item);
+                else toggleItemSelection(item);
+            };
 
             card.addEventListener("touchstart", (e) => {
                 if (e.touches.length > 1) { clearTimeout(lpTimer); return; }
@@ -1414,8 +1425,15 @@
                 if (!isMultiSelect) enterMultiSelect(item);
             });
 
-            card.onclick = () => {
+            card.onclick = (e) => {
                 if (lpTriggered) { lpTriggered = false; return; }
+                // PC Ctrl+Click or Cmd+Click for instant multi-select
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    if (!isMultiSelect) enterMultiSelect(item);
+                    else toggleItemSelection(item);
+                    return;
+                }
                 if (isMultiSelect) {
                     toggleItemSelection(item);
                     return;
@@ -1433,7 +1451,7 @@
             container.innerHTML = "";
 
             if (inTrash) {
-                pathDisplay.innerText = "Recycle Bin (Long-press or right-click to select)";
+                pathDisplay.innerText = "Recycle Bin (Hover/Ctrl+Click or long-press to select)";
                 btnBack.style.display = "none";
                 const rawList = trashHistory.filter(i => !query || (i.name || "").toLowerCase().includes(query));
                 const list = applySortToList(rawList, trashHistory);
@@ -1448,13 +1466,13 @@
                     const card = document.createElement("div");
                     card.className = "item-card" + (isSelected ? " selected" : "");
 
-                    attachLongPress(card, item, () => {
-                        showStatus("Long-press or right-click to select items.");
-                    });
-
                     const check = document.createElement("div");
                     check.className = "select-check";
                     check.innerText = isSelected ? "✓" : "";
+
+                    attachInteractions(card, check, item, () => {
+                        showStatus("Click checkbox or long-press to select items.");
+                    });
 
                     const left = document.createElement("div");
                     left.className = "item-left";
@@ -1510,7 +1528,7 @@
             const folders = applySortToList(rawFolders, fileHistory);
             const files = applySortToList(rawFiles, fileHistory);
 
-            currentMediaList = files.filter(f => isImageFile(f.name) || isVideoFile(f.name));
+            currentMediaList = files.filter(f => !f.isChunked && (isImageFile(f.name) || isVideoFile(f.name)));
             const items = [...folders, ...files];
             currentVisibleItems = items;
 
@@ -1525,22 +1543,19 @@
                 const card = document.createElement("div");
                 card.className = "item-card" + (isSelected ? " selected" : "");
 
-                attachLongPress(card, item, () => {
-                    isFolder ? openFolder(item.name) : handleFileClick(item);
-                });
-
-                // PC Hover preload: quietly warm up Telegram URL before click
-                if (!isFolder && isImageFile(item.name)) {
-                    card.addEventListener("mouseenter", () => {
-                        if (item.fileId && !urlCache[item.fileId]) {
-                            getTelegramDirectUrl(item.fileId);
-                        }
-                    }, { once: true });
-                }
-
                 const check = document.createElement("div");
                 check.className = "select-check";
                 check.innerText = isSelected ? "✓" : "";
+
+                attachInteractions(card, check, item, () => {
+                    isFolder ? openFolder(item.name) : handleFileClick(item);
+                });
+
+                if (!isFolder && !item.isChunked && isImageFile(item.name)) {
+                    card.addEventListener("mouseenter", () => {
+                        if (item.fileId && !urlCache[item.fileId]) getTelegramDirectUrl(item.fileId);
+                    }, { once: true });
+                }
 
                 const left = document.createElement("div");
                 left.className = "item-left";
@@ -1551,7 +1566,7 @@
 
                 if (!isFolder) {
                     const hasDedicatedThumb = Boolean(item.thumbFileId);
-                    const thumbId = item.thumbFileId || (isImageFile(item.name) ? item.fileId : "");
+                    const thumbId = item.thumbFileId || (!item.isChunked && isImageFile(item.name) ? item.fileId : "");
                     if (thumbId) {
                         thumb.dataset.thumbId = thumbId;
                         thumb.dataset.isThumb = hasDedicatedThumb ? "1" : "0";
@@ -1562,9 +1577,10 @@
                 const info = document.createElement("div");
                 info.className = "item-info";
                 const ext = (!isFolder && item.name && item.name.includes(".")) ? item.name.split(".").pop().toUpperCase() : (isFolder ? "Folder" : "File");
+                const sizeLabel = item.size ? ` • ${formatBytes(item.size)}` : "";
                 info.innerHTML = `<div class="item-name"></div><div class="item-sub"></div>`;
                 info.querySelector(".item-name").innerText = item.name || "Untitled";
-                info.querySelector(".item-sub").innerText = ext;
+                info.querySelector(".item-sub").innerText = ext + sizeLabel;
 
                 left.append(thumb, info);
                 card.append(check, left);
@@ -1610,7 +1626,7 @@
             showStatus("Folder created.");
         }
 
-        // --- Upload Manager & Queue (IndexedDB + Pause/Resume + Smart Rate-Limit) ---
+        // --- Upload Manager (Single + Unlimited 19 MB Chunked Upload with Resume) ---
         function openUploadModal() {
             renderUploadQueue();
             document.getElementById("uploadModal").classList.add("open");
@@ -1626,6 +1642,7 @@
                     file: files[i],
                     name: files[i].name,
                     targetPath: currentPath,
+                    uploadedChunks: [],
                     status: "queued",
                     progress: 0,
                     note: "",
@@ -1652,100 +1669,40 @@
             else releaseWakeLock();
         }
 
-        async function startUploadTask(task) {
-            task.status = "uploading";
-            task.progress = 0;
-            task.note = "";
-            activeUploadCount++;
-            updateUploadFab();
-            renderUploadQueue();
-
-            try {
-                const thumbBlob = await createImageThumbnail(task.file);
-                if (task.status === "cancelled" || task.status === "paused") return;
-
-                let data = null;
-                for (let attempt = 0; attempt < 6; attempt++) {
-                    if (task.status === "cancelled" || task.status === "paused") return;
-                    const res = await uploadTaskWithXhr(task, thumbBlob);
-                    if (res.status === 429 || (res.json && res.json.error_code === 429)) {
-                        const waitSec = (res.json && res.json.parameters && res.json.parameters.retry_after) ? res.json.parameters.retry_after : 6;
-                        task.status = "waiting";
-                        task.note = `Rate limit: retrying in ${waitSec}s...`;
-                        renderUploadQueue();
-                        await new Promise(r => setTimeout(r, (waitSec + 1) * 1000));
-                        if (task.status === "cancelled" || task.status === "paused") return;
-                        task.status = "uploading";
-                        task.progress = 0;
-                        task.note = "";
-                        renderUploadQueue();
-                        continue;
-                    }
-                    data = res.json;
-                    break;
+        async function uploadBlobWithRetry(task, blob, filename, thumbBlob, onProgress) {
+            for (let attempt = 0; attempt < 6; attempt++) {
+                if (task.status === "cancelled" || task.status === "paused") return null;
+                const res = await uploadBlobXhr(task, blob, filename, thumbBlob, onProgress);
+                if (res.status === 429 || (res.json && res.json.error_code === 429)) {
+                    const waitSec = (res.json && res.json.parameters && res.json.parameters.retry_after) ? res.json.parameters.retry_after : 6;
+                    const prevNote = task.note;
+                    task.status = "waiting";
+                    task.note = `Rate limit: retrying in ${waitSec}s...`;
+                    renderUploadQueue();
+                    await new Promise(r => setTimeout(r, (waitSec + 1) * 1000));
+                    if (task.status === "cancelled" || task.status === "paused") return null;
+                    task.status = "uploading";
+                    task.note = prevNote;
+                    renderUploadQueue();
+                    continue;
                 }
-
-                if (task.status === "cancelled" || task.status === "paused") return;
-
-                if (data && data.ok && data.result) {
-                    const r = data.result;
-                    const doc = r.document || r.video || (r.photo ? r.photo[r.photo.length - 1] : null);
-                    if (doc && doc.file_id) {
-                        const thumbId = (doc.thumbnail && doc.thumbnail.file_id) || (doc.thumb && doc.thumb.file_id) || "";
-                        // Cache generated thumbnail locally right away
-                        if (thumbId && thumbBlob) saveThumbToCache(thumbId, thumbBlob);
-
-                        fileHistory.push({
-                            type: "file",
-                            msgId: String(r.message_id),
-                            fileId: doc.file_id,
-                            name: task.name,
-                            path: task.targetPath,
-                            thumbFileId: thumbId
-                        });
-                        task.status = "done";
-                        task.progress = 100;
-                        task.file = null;
-                        await idbDeleteTask(task.id);
-                        await syncToCloud();
-                        renderFiles();
-                    } else {
-                        task.status = "failed";
-                    }
-                } else {
-                    task.status = "failed";
-                }
-            } catch (e) {
-                if (task.status !== "cancelled" && task.status !== "paused") {
-                    task.status = "failed";
-                }
-            } finally {
-                task.xhr = null;
-                activeUploadCount = Math.max(0, activeUploadCount - 1);
-                updateUploadFab();
-                renderUploadQueue();
-                processUploadQueue();
+                return res.json;
             }
+            return null;
         }
 
-        function uploadTaskWithXhr(task, thumbBlob) {
+        function uploadBlobXhr(task, blob, filename, thumbBlob, onProgress) {
             return new Promise((resolve, reject) => {
                 const formData = new FormData();
                 formData.append("chat_id", chatId);
                 if (thumbBlob) formData.append("thumbnail", thumbBlob, "thumb.jpg");
-                formData.append("document", task.file, task.name);
+                formData.append("document", blob, filename);
 
                 const xhr = new XMLHttpRequest();
                 task.xhr = xhr;
                 xhr.open("POST", `https://api.telegram.org/bot${botToken}/sendDocument`);
                 xhr.upload.onprogress = (e) => {
-                    if (e.lengthComputable) {
-                        const p = Math.round((e.loaded / e.total) * 100);
-                        if (p !== task.progress) {
-                            task.progress = p;
-                            renderUploadQueue();
-                        }
-                    }
+                    if (e.lengthComputable && onProgress) onProgress(e.loaded, e.total);
                 };
                 xhr.onload = () => {
                     let json = null;
@@ -1756,6 +1713,125 @@
                 xhr.onabort = () => reject(new Error("Aborted"));
                 xhr.send(formData);
             });
+        }
+
+        async function startUploadTask(task) {
+            task.status = "uploading";
+            task.note = "";
+            activeUploadCount++;
+            updateUploadFab();
+            renderUploadQueue();
+
+            try {
+                const isLarge = task.file.size > CHUNK_SIZE;
+
+                if (!isLarge) {
+                    const thumbBlob = await createImageThumbnail(task.file);
+                    if (task.status === "cancelled" || task.status === "paused") return;
+
+                    const data = await uploadBlobWithRetry(task, task.file, task.name, thumbBlob, (loaded, total) => {
+                        const p = Math.round((loaded / total) * 100);
+                        if (p !== task.progress) { task.progress = p; renderUploadQueue(); }
+                    });
+
+                    if (task.status === "cancelled" || task.status === "paused") return;
+
+                    if (data && data.ok && data.result) {
+                        const r = data.result;
+                        const doc = r.document || r.video || (r.photo ? r.photo[r.photo.length - 1] : null);
+                        if (doc && doc.file_id) {
+                            const thumbId = (doc.thumbnail && doc.thumbnail.file_id) || (doc.thumb && doc.thumb.file_id) || "";
+                            if (thumbId && thumbBlob) saveThumbToCache(thumbId, thumbBlob);
+
+                            fileHistory.push({
+                                type: "file",
+                                msgId: String(r.message_id),
+                                fileId: doc.file_id,
+                                name: task.name,
+                                size: task.file.size,
+                                path: task.targetPath,
+                                thumbFileId: thumbId
+                            });
+                            task.status = "done";
+                            task.progress = 100;
+                            task.file = null;
+                            await idbDeleteTask(task.id);
+                            await syncToCloud();
+                            renderFiles();
+                        } else {
+                            task.status = "failed";
+                        }
+                    } else {
+                        task.status = "failed";
+                    }
+                } else {
+                    // Chunked Upload for large files (> 19 MB)
+                    const totalChunks = Math.ceil(task.file.size / CHUNK_SIZE);
+                    if (!Array.isArray(task.uploadedChunks)) task.uploadedChunks = [];
+
+                    for (let i = task.uploadedChunks.length; i < totalChunks; i++) {
+                        if (task.status === "cancelled" || task.status === "paused") return;
+
+                        const start = i * CHUNK_SIZE;
+                        const end = Math.min(start + CHUNK_SIZE, task.file.size);
+                        const chunkBlob = task.file.slice(start, end);
+                        task.note = `Part ${i + 1} of ${totalChunks}`;
+                        renderUploadQueue();
+
+                        const data = await uploadBlobWithRetry(
+                            task,
+                            chunkBlob,
+                            `${task.name}.part${i + 1}`,
+                            null,
+                            (loaded, total) => {
+                                const overall = Math.round(((i + (loaded / total)) / totalChunks) * 100);
+                                if (overall !== task.progress) { task.progress = overall; renderUploadQueue(); }
+                            }
+                        );
+
+                        if (task.status === "cancelled" || task.status === "paused") return;
+
+                        if (data && data.ok && data.result) {
+                            const r = data.result;
+                            const doc = r.document || r.video;
+                            if (doc && doc.file_id) {
+                                task.uploadedChunks.push({ msgId: String(r.message_id), fileId: doc.file_id });
+                                await idbSaveTask(task); // Save progress so resume continues from next chunk
+                            } else {
+                                task.status = "failed";
+                                return;
+                            }
+                        } else {
+                            task.status = "failed";
+                            return;
+                        }
+                    }
+
+                    fileHistory.push({
+                        type: "file",
+                        isChunked: true,
+                        name: task.name,
+                        size: task.file.size,
+                        path: task.targetPath,
+                        chunks: task.uploadedChunks
+                    });
+                    task.status = "done";
+                    task.progress = 100;
+                    task.note = "";
+                    task.file = null;
+                    await idbDeleteTask(task.id);
+                    await syncToCloud();
+                    renderFiles();
+                }
+            } catch (e) {
+                if (task.status !== "cancelled" && task.status !== "paused") task.status = "failed";
+            } finally {
+                task.xhr = null;
+                activeUploadCount = Math.max(0, activeUploadCount - 1);
+                updateUploadFab();
+                renderUploadQueue();
+                processUploadQueue();
+            }
         }
 
         function pauseUploadTask(id) {
@@ -1773,7 +1849,6 @@
             const task = uploadTasks.find(t => t.id === id);
             if (!task || !task.file) return;
             task.status = "queued";
-            task.progress = 0;
             task.note = "";
             updateUploadFab();
             renderUploadQueue();
@@ -1784,7 +1859,6 @@
             uploadTasks.forEach(t => {
                 if ((t.status === "paused" || t.status === "failed") && t.file) {
                     t.status = "queued";
-                    t.progress = 0;
                     t.note = "";
                 }
             });
@@ -1815,25 +1889,15 @@
             const fab = document.getElementById("fabUploads");
             const dot = document.getElementById("fabDot");
             const text = document.getElementById("fabText");
-            if (uploadTasks.length === 0) {
-                fab.classList.remove("visible");
-                return;
-            }
+            if (uploadTasks.length === 0) { fab.classList.remove("visible"); return; }
             fab.classList.add("visible");
             const active = uploadTasks.filter(t => t.status === "uploading" || t.status === "queued" || t.status === "waiting").length;
             const paused = uploadTasks.filter(t => t.status === "paused" || t.status === "failed").length;
             const done = uploadTasks.filter(t => t.status === "done").length;
 
-            if (active > 0) {
-                dot.className = "fab-dot pulse";
-                text.innerText = `Uploading (${active})`;
-            } else if (paused > 0) {
-                dot.className = "fab-dot paused";
-                text.innerText = `Paused (${paused})`;
-            } else {
-                dot.className = "fab-dot";
-                text.innerText = `Uploads (${done} done)`;
-            }
+            if (active > 0) { dot.className = "fab-dot pulse"; text.innerText = `Uploading (${active})`; }
+            else if (paused > 0) { dot.className = "fab-dot paused"; text.innerText = `Paused (${paused})`; }
+            else { dot.className = "fab-dot"; text.innerText = `Uploads (${done} done)`; }
         }
 
         function renderUploadQueue() {
@@ -1864,8 +1928,10 @@
 
                     let statusText = "Waiting in queue...";
                     let statusCls = "";
-                    if (t.status === "uploading") { statusText = `Uploading... ${t.progress}%`; statusCls = "uploading"; }
-                    else if (t.status === "waiting") { statusText = t.note || "Rate limit: waiting..."; statusCls = "paused"; }
+                    if (t.status === "uploading") {
+                        statusText = t.note ? `Uploading (${t.note})... ${t.progress}%` : `Uploading... ${t.progress}%`;
+                        statusCls = "uploading";
+                    } else if (t.status === "waiting") { statusText = t.note || "Rate limit: waiting..."; statusCls = "paused"; }
                     else if (t.status === "paused") { statusText = t.note || "Paused"; statusCls = "paused"; }
                     else if (t.status === "failed") { statusText = "Failed — tap to resume"; statusCls = "failed"; }
 
@@ -1940,8 +2006,7 @@
                     const canvas = document.createElement("canvas");
                     canvas.width = Math.round(img.width * scale);
                     canvas.height = Math.round(img.height * scale);
-                    const ctx = canvas.getContext("2d");
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
                     canvas.toBlob(blob => resolve(blob), "image/jpeg", 0.72);
                 };
                 img.onerror = () => { URL.revokeObjectURL(objUrl); resolve(null); };
@@ -1949,9 +2014,8 @@
             });
         }
 
-        // --- Media Viewer with Instant Blur-Up HD, In-Memory Preload, Zoom & Swipe ---
         function handleFileClick(item) {
-            if (isImageFile(item.name) || isVideoFile(item.name)) {
+            if (!item.isChunked && (isImageFile(item.name) || isVideoFile(item.name))) {
                 const idx = currentMediaList.findIndex(m => m === item || m.fileId === item.fileId);
                 currentMediaIndex = idx !== -1 ? idx : 0;
                 if (!isViewerOpen) {
@@ -1965,11 +2029,7 @@
             }
         }
 
-        function resetZoom() {
-            zScale = 1; zX = 0; zY = 0;
-            applyZoomTransform();
-        }
-
+        function resetZoom() { zScale = 1; zX = 0; zY = 0; applyZoomTransform(); }
         function applyZoomTransform() {
             const img = document.getElementById("activeZoomImg");
             if (img) img.style.transform = `translate3d(${zX}px, ${zY}px, 0) scale(${zScale})`;
@@ -1979,15 +2039,9 @@
             if (!isViewerOpen || adjIdx < 0 || adjIdx >= currentMediaList.length) return;
             const adjItem = currentMediaList[adjIdx];
             if (!adjItem || !isImageFile(adjItem.name) || viewerPreloadMap.has(adjItem.fileId)) return;
-
             const url = await getTelegramDirectUrl(adjItem.fileId);
             if (!url || !isViewerOpen) return;
-
-            // Keep preload map tiny (max 4 images in RAM)
-            if (viewerPreloadMap.size >= 4) {
-                const firstKey = viewerPreloadMap.keys().next().value;
-                viewerPreloadMap.delete(firstKey);
-            }
+            if (viewerPreloadMap.size >= 4) viewerPreloadMap.delete(viewerPreloadMap.keys().next().value);
             const preImg = new Image();
             preImg.src = url;
             viewerPreloadMap.set(adjItem.fileId, preImg);
@@ -2013,18 +2067,13 @@
             document.getElementById("viewerDeleteBtn").onclick = () => {
                 openConfirm("Move to Recycle Bin?", `Move "${item.name}" to the Recycle Bin?`, "Move to Bin", "btn-danger", async () => {
                     await moveToTrash(item);
-                    if (currentMediaList.length === 0) {
-                        closeViewer();
-                    } else {
-                        const nextIdx = Math.min(currentMediaIndex, currentMediaList.length - 1);
-                        showMediaAtIndex(nextIdx);
-                    }
+                    if (currentMediaList.length === 0) closeViewer();
+                    else showMediaAtIndex(Math.min(currentMediaIndex, currentMediaList.length - 1));
                 });
             };
 
             if (isImageFile(item.name)) {
                 hint.innerText = "Pinch or double-tap to zoom • Swipe to navigate";
-
                 const img = document.createElement("img");
                 img.id = "activeZoomImg";
                 img.draggable = false;
@@ -2033,7 +2082,6 @@
                 badge.className = "hd-badge";
                 badge.innerText = "Loading HD...";
 
-                // Step 1: Instantly show cached thumbnail (from IndexedDB or session URL cache)
                 const thumbId = item.thumbFileId;
                 const localThumbUrl = thumbId ? (await getCachedThumbUrl(thumbId) || urlCache[thumbId]) : null;
                 if (!isViewerOpen || currentMediaIndex !== idx) return;
@@ -2046,44 +2094,33 @@
                     content.innerHTML = `<div style="color:#94a3b8;font-size:14px;">Loading...</div>`;
                 }
 
-                // Step 2: Load Full HD image
                 const fullUrl = await getTelegramDirectUrl(item.fileId);
                 if (!isViewerOpen || currentMediaIndex !== idx) return;
 
                 if (!fullUrl) {
-                    if (!localThumbUrl) {
-                        content.innerHTML = `<div style="color:#f87171;font-size:14px;padding:20px;text-align:center;">Unable to load image (20 MB Bot API limit).</div>`;
-                    } else {
-                        badge.innerText = "HD unavailable (20 MB+ limit)";
-                    }
+                    if (!localThumbUrl) content.innerHTML = `<div style="color:#f87171;font-size:14px;padding:20px;text-align:center;">Unable to load image.</div>`;
+                    else badge.innerText = "HD unavailable";
                     return;
                 }
 
                 const hdLoader = new Image();
                 hdLoader.onload = () => {
                     if (!isViewerOpen || currentMediaIndex !== idx) return;
-                    if (!content.contains(img)) {
-                        content.innerHTML = "";
-                        content.appendChild(img);
-                    }
+                    if (!content.contains(img)) { content.innerHTML = ""; content.appendChild(img); }
                     img.src = fullUrl;
                     img.classList.remove("blur-loading");
                     if (badge.parentNode) badge.remove();
-
-                    // Preload next & previous images in memory for instant swipe
                     preloadAdjacentImage(idx + 1);
                     preloadAdjacentImage(idx - 1);
                 };
-                hdLoader.onerror = () => {
-                    if (badge.parentNode) badge.remove();
-                };
+                hdLoader.onerror = () => { if (badge.parentNode) badge.remove(); };
                 hdLoader.src = fullUrl;
             } else {
                 content.innerHTML = `<div style="color:#94a3b8;font-size:14px;">Loading video...</div>`;
                 const url = await getTelegramDirectUrl(item.fileId);
                 if (!isViewerOpen || currentMediaIndex !== idx) return;
                 if (!url) {
-                    content.innerHTML = `<div style="color:#f87171;font-size:14px;padding:20px;text-align:center;">Unable to play video (20 MB Bot API limit).</div>`;
+                    content.innerHTML = `<div style="color:#f87171;font-size:14px;padding:20px;text-align:center;">Unable to play video.</div>`;
                     return;
                 }
                 content.innerHTML = "";
@@ -2102,30 +2139,24 @@
             if (next >= 0 && next < currentMediaList.length) showMediaAtIndex(next);
         }
 
-        function closeViewer() {
-            if (isViewerOpen) history.back();
-        }
+        function closeViewer() { if (isViewerOpen) history.back(); }
 
         function closeViewerInternal() {
             isViewerOpen = false;
             document.getElementById("mediaViewer").classList.remove("open");
             document.getElementById("viewerContent").innerHTML = "";
-            viewerPreloadMap.clear(); // Free memory immediately on close
+            viewerPreloadMap.clear();
             resetZoom();
         }
 
         const viewerBody = document.getElementById("viewerBody");
-        function getTouchDist(t1, t2) {
-            return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-        }
+        function getTouchDist(t1, t2) { return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY); }
 
         viewerBody.addEventListener("touchstart", (e) => {
             if (e.target.tagName === "VIDEO" || e.target.closest(".nav-arrow")) return;
             const img = document.getElementById("activeZoomImg");
-
             if (e.touches.length === 2 && img) {
-                isPinching = true;
-                isPanning = false;
+                isPinching = true; isPanning = false;
                 pinchStartDist = getTouchDist(e.touches[0], e.touches[1]);
                 pinchStartScale = zScale;
             } else if (e.touches.length === 1) {
@@ -2151,7 +2182,6 @@
             if (e.target.tagName === "VIDEO") return;
             const img = document.getElementById("activeZoomImg");
             if (!img) return;
-
             if (isPinching && e.touches.length === 2) {
                 const dist = getTouchDist(e.touches[0], e.touches[1]);
                 zScale = Math.min(Math.max(pinchStartScale * (dist / pinchStartDist), 1), 4);
@@ -2166,22 +2196,13 @@
 
         viewerBody.addEventListener("touchend", (e) => {
             if (e.target.tagName === "VIDEO" || e.target.closest(".nav-arrow")) return;
-
-            if (isPinching && e.touches.length < 2) {
-                isPinching = false;
-                if (zScale < 1.05) resetZoom();
-                return;
-            }
-            if (isPanning) {
-                isPanning = false;
-                return;
-            }
+            if (isPinching && e.touches.length < 2) { isPinching = false; if (zScale < 1.05) resetZoom(); return; }
+            if (isPanning) { isPanning = false; return; }
             if (zScale <= 1.05 && e.changedTouches.length === 1) {
                 const dx = e.changedTouches[0].clientX - touchStartX;
                 const dy = e.changedTouches[0].clientY - touchStartY;
                 if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.3) {
-                    if (dx < 0) stepMedia(1);
-                    else stepMedia(-1);
+                    if (dx < 0) stepMedia(1); else stepMedia(-1);
                 }
             }
         }, { passive: true });
@@ -2219,7 +2240,7 @@
             const idx = trashHistory.findIndex(x => x === item || JSON.stringify(x) === JSON.stringify(item));
             if (idx === -1) return;
             showStatus("Deleting permanently...", false);
-            if (item.msgId) await deleteTelegramMessageSafe(item.msgId);
+            await deleteItemFromTelegram(item);
             trashHistory.splice(idx, 1);
             renderFiles();
             await syncToCloud();
