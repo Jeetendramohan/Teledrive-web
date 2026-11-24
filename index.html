@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex, nofollow">
-    <title>TeleCloud Drive v5</title>
+    <title>TeleCloud Drive v6</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         :root {
@@ -20,8 +20,11 @@
             --danger-soft: #fee2e2;
             --success: #16a34a;
             --success-soft: #dcfce7;
+            --warn: #d97706;
+            --warn-soft: #fef3c7;
             --radius: 14px;
             --shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+            --grid-cols: 3;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif; -webkit-tap-highlight-color: transparent; }
@@ -55,19 +58,25 @@
         .icon-btn { background: var(--surface-2); color: var(--text); border: none; border-radius: 10px; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.15s; }
         .icon-btn:active { transform: scale(0.93); }
 
-        /* Multi-Select Batch Bar */
-        #batchBar { display: none; background: var(--primary); color: #fff; padding: 10px 14px; position: sticky; top: 0; z-index: 30; align-items: center; justify-content: space-between; gap: 8px; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25); }
+        /* Modern Theme-Matched Batch Bar */
+        #batchBar { display: none; background: rgba(240, 249, 255, 0.97); backdrop-filter: blur(10px); color: var(--text); padding: 10px 14px; position: sticky; top: 0; z-index: 30; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1.5px solid #bae6fd; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.08); }
         #batchBar.active { display: flex; }
-        .batch-left { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; }
-        .batch-actions { display: flex; gap: 6px; }
-        .batch-btn { background: rgba(255,255,255,0.18); color: #fff; border: none; border-radius: 9px; padding: 8px 10px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
-        .batch-btn:active { background: rgba(255,255,255,0.3); }
+        .batch-left { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; color: var(--primary); }
+        .batch-actions { display: flex; gap: 6px; align-items: center; }
+        .batch-btn { background: var(--surface); color: var(--text); border: 1px solid #bae6fd; border-radius: 10px; height: 36px; min-width: 36px; padding: 0 9px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; transition: 0.15s; }
+        .batch-btn:active { transform: scale(0.94); background: var(--primary-soft); }
+        .batch-btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .batch-btn.danger { background: var(--danger-soft); color: var(--danger); border-color: #fecaca; }
+        .batch-btn.success { background: var(--success-soft); color: var(--success); border-color: #bbf7d0; }
 
         .controls-wrap { padding: 12px 16px 6px; display: flex; flex-direction: column; gap: 10px; }
-        .search-box { position: relative; }
+        .search-row { display: flex; gap: 8px; align-items: center; }
+        .search-box { position: relative; flex: 1; }
         .search-box input { width: 100%; padding: 11px 14px 11px 40px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); font-size: 14px; outline: none; }
         .search-box input:focus { border-color: var(--primary); }
         .search-box svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+        .sort-btn { height: 42px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 12.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; flex-shrink: 0; }
+        .sort-btn:active { background: var(--surface-2); }
 
         .action-pills { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
         .action-pills::-webkit-scrollbar { display: none; }
@@ -81,7 +90,7 @@
 
         #fileContainer { padding: 4px 16px 16px; }
         .list-view { display: flex; flex-direction: column; gap: 8px; }
-        .grid-view { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 10px; }
+        .grid-view { display: grid; grid-template-columns: repeat(var(--grid-cols, 3), minmax(0, 1fr)); gap: 10px; }
 
         .item-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; transition: 0.15s; box-shadow: var(--shadow); position: relative; user-select: none; -webkit-user-select: none; }
         .item-card:active { transform: scale(0.99); }
@@ -106,14 +115,14 @@
         .mini-btn:hover { background: var(--border); color: var(--text); }
         .mini-btn.del:hover { background: var(--danger-soft); color: var(--danger); }
 
-        .grid-view .item-card { flex-direction: column; padding: 10px; gap: 8px; align-items: stretch; }
-        .grid-view .item-left { flex-direction: column; gap: 8px; width: 100%; text-align: center; }
-        .grid-view .thumb-box { width: 100%; height: 96px; border-radius: 10px; }
-        .grid-view .item-name { font-size: 12.5px; -webkit-line-clamp: 2; }
+        .grid-view .item-card { flex-direction: column; padding: 8px; gap: 6px; align-items: stretch; }
+        .grid-view .item-left { flex-direction: column; gap: 6px; width: 100%; text-align: center; }
+        .grid-view .thumb-box { width: 100%; height: auto; aspect-ratio: 1 / 1; border-radius: 10px; }
+        .grid-view .item-name { font-size: 12px; -webkit-line-clamp: 2; }
         .grid-view .item-sub { display: none; }
         .grid-view .item-actions { justify-content: center; width: 100%; border-top: 1px solid var(--surface-2); padding-top: 6px; }
-        .grid-view .mini-btn { flex: 1; height: 30px; }
-        .grid-view .select-check { position: absolute; top: 8px; right: 8px; z-index: 3; }
+        .grid-view .mini-btn { flex: 1; height: 28px; }
+        .grid-view .select-check { position: absolute; top: 8px; right: 8px; z-index: 3; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
 
         .empty-msg { text-align: center; color: var(--muted); padding: 48px 20px; font-size: 14px; }
 
@@ -122,6 +131,7 @@
         #fabUploads.visible { display: inline-flex; }
         .fab-dot { width: 9px; height: 9px; border-radius: 50%; background: #4ade80; }
         .fab-dot.pulse { background: #fde047; animation: pulseAnim 1s infinite; }
+        .fab-dot.paused { background: #fb923c; }
         @keyframes pulseAnim { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.3); } }
 
         /* Upload Queue Modal Styles */
@@ -132,13 +142,15 @@
         .queue-status { font-size: 11px; font-weight: 600; margin-top: 3px; color: var(--muted); }
         .queue-status.uploading { color: var(--primary); }
         .queue-status.done { color: var(--success); }
+        .queue-status.paused { color: var(--warn); }
         .queue-status.failed { color: var(--danger); }
         .queue-bar-track { width: 100%; height: 5px; background: var(--border); border-radius: 99px; overflow: hidden; margin-top: 6px; }
         .queue-bar-fill { height: 100%; background: var(--primary); transition: width 0.2s; }
         .queue-btns { display: flex; gap: 5px; flex-shrink: 0; }
-        .q-btn { border: none; border-radius: 8px; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; }
+        .q-btn { border: none; border-radius: 8px; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
         .q-btn.cancel { background: var(--danger-soft); color: var(--danger); }
         .q-btn.retry { background: var(--primary-soft); color: var(--primary); }
+        .q-btn.pause { background: var(--warn-soft); color: var(--warn); }
 
         /* Modals */
         .modal-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 250; padding: 16px; }
@@ -149,9 +161,10 @@
         .modal-desc { font-size: 14px; color: var(--muted); line-height: 1.45; margin-bottom: 14px; word-break: break-word; }
         .modal-input { width: 100%; padding: 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 15px; margin-bottom: 14px; outline: none; }
         .modal-input:focus { border-color: var(--primary); }
-        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+        .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; flex-wrap: wrap; }
         .modal-list { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; flex: 1; }
-        .folder-opt { padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); font-size: 14px; font-weight: 500; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+        .folder-opt { padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); font-size: 14px; font-weight: 500; text-align: left; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--text); }
+        .folder-opt.active { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); font-weight: 700; }
         .folder-opt:active { background: var(--primary-soft); border-color: var(--primary); }
 
         /* Fullscreen Media Viewer */
@@ -163,8 +176,11 @@
         .viewer-counter { font-size: 11px; color: #94a3b8; margin-top: 2px; }
 
         .viewer-body { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; touch-action: none; }
-        .viewer-body img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center center; will-change: transform; }
+        .viewer-body img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center center; will-change: transform; transition: filter 0.25s ease; }
+        .viewer-body img.blur-loading { filter: blur(8px); }
         .viewer-body video { max-width: 100%; max-height: 100%; border-radius: 6px; object-fit: contain; }
+
+        .hd-badge { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.78); color: #e2e8f0; padding: 5px 12px; border-radius: 99px; font-size: 11px; font-weight: 600; z-index: 12; pointer-events: none; backdrop-filter: blur(4px); }
 
         .nav-arrow { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.16); color: #fff; border: none; width: 42px; height: 52px; border-radius: 12px; font-size: 22px; font-weight: 700; cursor: pointer; z-index: 10; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
         .nav-arrow:active { background: rgba(255,255,255,0.3); }
@@ -223,24 +239,27 @@
             </div>
         </div>
 
-        <!-- Multi-Select Batch Bar -->
+        <!-- Modern Multi-Select Batch Bar -->
         <div id="batchBar">
             <div class="batch-left">
-                <button class="batch-btn" onclick="exitMultiSelect()">✕</button>
+                <button class="batch-btn" onclick="exitMultiSelect()" title="Cancel">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
                 <span id="selectedCountText">0 selected</span>
             </div>
-            <div class="batch-actions">
-                <button class="batch-btn" onclick="selectAllVisible()" title="Select All">All</button>
-                <button class="batch-btn" onclick="openBatchDownloadModal()" title="Download">⬇️</button>
-                <button class="batch-btn" onclick="openBatchMoveModal()" title="Move">📂</button>
-                <button class="batch-btn" onclick="confirmBatchDelete()" title="Delete">🗑️</button>
-            </div>
+            <div class="batch-actions" id="batchActionsWrap"></div>
         </div>
 
         <div class="controls-wrap">
-            <div class="search-box">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input type="text" id="searchInput" placeholder="Search in this folder..." oninput="renderFiles()">
+            <div class="search-row">
+                <div class="search-box">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="text" id="searchInput" placeholder="Search in this folder..." oninput="renderFiles()">
+                </div>
+                <button class="sort-btn" onclick="openSortModal()" title="Sort">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>
+                    <span id="sortBtnLabel">Sort</span>
+                </button>
             </div>
             <div class="action-pills">
                 <button class="pill-btn primary" onclick="document.getElementById('fileInput').click()">
@@ -283,8 +302,20 @@
             </div>
             <div class="modal-list" id="uploadQueueBody"></div>
             <div class="modal-actions">
-                <button class="btn btn-soft" onclick="clearCompletedUploads()">Clear Completed</button>
-                <button class="btn btn-primary" onclick="closeModal('uploadModal')">Close</button>
+                <button class="btn btn-primary" id="btnResumeAll" style="display:none" onclick="resumeAllPausedUploads()">Resume All</button>
+                <button class="btn btn-soft" onclick="clearCompletedUploads()">Clear Done</button>
+                <button class="btn btn-soft" onclick="closeModal('uploadModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sort Modal -->
+    <div class="modal-backdrop" id="sortModal">
+        <div class="modal-card">
+            <div class="modal-title">Sort Files & Folders</div>
+            <div class="modal-list" id="sortOptionsList"></div>
+            <div class="modal-actions">
+                <button class="btn btn-soft" onclick="closeModal('sortModal')">Close</button>
             </div>
         </div>
     </div>
@@ -313,14 +344,14 @@
         </div>
     </div>
 
-    <!-- Rename Folder Modal -->
+    <!-- Rename File/Folder Modal -->
     <div class="modal-backdrop" id="renameModal">
         <div class="modal-card">
-            <div class="modal-title">Rename Folder</div>
-            <input type="text" id="renameFolderInput" class="modal-input" placeholder="Naya naam likhein...">
+            <div class="modal-title" id="renameModalTitle">Rename</div>
+            <input type="text" id="renameItemInput" class="modal-input" placeholder="Naya naam likhein...">
             <div class="modal-actions">
                 <button class="btn btn-soft" onclick="closeModal('renameModal')">Cancel</button>
-                <button class="btn btn-primary" onclick="confirmRenameFolder()">Save</button>
+                <button class="btn btn-primary" onclick="confirmRenameItem()">Save</button>
             </div>
         </div>
     </div>
@@ -343,8 +374,8 @@
             <div class="modal-title">Download Options</div>
             <div class="modal-desc" id="dlChoiceDesc">Kaise download karna chahte hain?</div>
             <div class="modal-list">
-                <button class="btn btn-primary btn-full" onclick="closeModal('dlChoiceModal'); startBatchZipDownload();">📦 Download as ZIP (1 File)</button>
-                <button class="btn btn-soft btn-full" onclick="closeModal('dlChoiceModal'); startBatchNormalDownload();">📥 Download Normally (Alag-Alag)</button>
+                <button class="btn btn-primary btn-full" onclick="closeModal('dlChoiceModal'); startBatchZipDownload();">Download as ZIP (1 File)</button>
+                <button class="btn btn-soft btn-full" onclick="closeModal('dlChoiceModal'); startBatchNormalDownload();">Download Normally (Alag-Alag)</button>
             </div>
             <div class="modal-actions">
                 <button class="btn btn-soft" onclick="closeModal('dlChoiceModal')">Cancel</button>
@@ -363,13 +394,13 @@
         </div>
         <div class="viewer-body" id="viewerBody">
             <button class="nav-arrow nav-prev" id="btnPrevMedia" onclick="stepMedia(-1)">‹</button>
-            <div id="viewerContent" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"></div>
+            <div id="viewerContent" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;position:relative;"></div>
             <button class="nav-arrow nav-next" id="btnNextMedia" onclick="stepMedia(1)">›</button>
         </div>
         <div class="viewer-hint" id="viewerHint"></div>
         <div class="viewer-bottom">
-            <button class="btn btn-primary" id="viewerDownloadBtn">📥 Download</button>
-            <button class="btn btn-danger" id="viewerDeleteBtn">🗑️ Delete</button>
+            <button class="btn btn-primary" id="viewerDownloadBtn">Download</button>
+            <button class="btn btn-danger" id="viewerDeleteBtn">Delete</button>
         </div>
     </div>
 
@@ -388,6 +419,8 @@
         let currentPath = "/";
         let inTrash = false;
         let isGrid = localStorage.getItem("td_grid") === "true";
+        let gridCols = Math.min(5, Math.max(2, parseInt(localStorage.getItem("td_grid_cols")) || 3));
+        let sortMode = localStorage.getItem("td_sort") || "newest";
 
         // Multi-select state
         let isMultiSelect = false;
@@ -395,10 +428,10 @@
         let currentVisibleItems = [];
 
         // Rename target
-        let folderToRename = null;
+        let itemToRename = null;
 
-        // Upload Queue Manager state
-        let uploadTasks = []; // { id, file, name, targetPath, status: 'queued'|'uploading'|'done'|'failed'|'cancelled', progress: 0, xhr: null }
+        // Upload Queue Manager state (IndexedDB backed)
+        let uploadTasks = []; // { id, file, name, targetPath, status: 'queued'|'uploading'|'paused'|'waiting'|'done'|'failed'|'cancelled', progress: 0, note: '', xhr: null }
         let activeUploadCount = 0;
         const MAX_CONCURRENT_UPLOADS = 2;
         let wakeLock = null;
@@ -416,6 +449,10 @@
         let pinchStartDist = 0, pinchStartScale = 1;
         let isPinching = false, isPanning = false;
 
+        // Grid pinch-to-resize state
+        let gridPinchStartDist = 0;
+        let gridPinchActive = false;
+
         const urlCache = JSON.parse(sessionStorage.getItem("td_url_cache") || "{}");
         function saveUrlCache() {
             try { sessionStorage.setItem("td_url_cache", JSON.stringify(urlCache)); } catch(e) {}
@@ -432,8 +469,82 @@
             download: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
             trash: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
             rename: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`,
-            restore: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>`
+            move: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/><path d="M12 10v6"/><path d="m15 13-3 3-3-3"/></svg>`,
+            restore: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>`,
+            selectAll: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
+            play: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>`,
+            pause: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`,
+            close: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`
         };
+
+        // --- IndexedDB for Persistent Uploads across Page Refresh ---
+        const IDB_NAME = "TeleCloudUploadsDB";
+        const IDB_STORE = "tasks";
+
+        function openUploadDB() {
+            return new Promise((resolve, reject) => {
+                if (!window.indexedDB) return reject("No IDB");
+                const req = indexedDB.open(IDB_NAME, 1);
+                req.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(IDB_STORE)) {
+                        db.createObjectStore(IDB_STORE, { keyPath: "id" });
+                    }
+                };
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        async function idbSaveTask(task) {
+            try {
+                const db = await openUploadDB();
+                const tx = db.transaction(IDB_STORE, "readwrite");
+                tx.objectStore(IDB_STORE).put({
+                    id: task.id,
+                    name: task.name,
+                    targetPath: task.targetPath,
+                    file: task.file
+                });
+            } catch (e) {}
+        }
+
+        async function idbDeleteTask(id) {
+            try {
+                const db = await openUploadDB();
+                const tx = db.transaction(IDB_STORE, "readwrite");
+                tx.objectStore(IDB_STORE).delete(id);
+            } catch (e) {}
+        }
+
+        async function restorePendingUploadsFromDB() {
+            try {
+                const db = await openUploadDB();
+                const tx = db.transaction(IDB_STORE, "readonly");
+                const req = tx.objectStore(IDB_STORE).getAll();
+                req.onsuccess = () => {
+                    const saved = req.result || [];
+                    if (saved.length > 0) {
+                        saved.forEach(s => {
+                            if (!uploadTasks.some(t => t.id === s.id)) {
+                                uploadTasks.push({
+                                    id: s.id,
+                                    file: s.file,
+                                    name: s.name,
+                                    targetPath: s.targetPath || "/",
+                                    status: "paused",
+                                    progress: 0,
+                                    note: "Paused (Page refreshed)",
+                                    xhr: null
+                                });
+                            }
+                        });
+                        updateUploadFab();
+                        showStatus(`${saved.length} paused upload(s) mil gaye — Resume kar sakte hain!`);
+                    }
+                };
+            } catch (e) {}
+        }
 
         // --- Screen Wake Lock & Reload Protection during Uploads ---
         async function acquireWakeLock() {
@@ -465,7 +576,7 @@
         history.replaceState({ view: "root" }, "");
 
         window.addEventListener("popstate", () => {
-            const modals = ["confirmModal", "folderModal", "renameModal", "moveModal", "dlChoiceModal", "uploadModal"];
+            const modals = ["confirmModal", "folderModal", "renameModal", "moveModal", "dlChoiceModal", "uploadModal", "sortModal"];
             for (const m of modals) {
                 if (document.getElementById(m).classList.contains("open")) {
                     closeModal(m);
@@ -611,8 +722,10 @@
         function openWorkspace() {
             document.getElementById("loginScreen").style.display = "none";
             document.getElementById("workspace").style.display = "block";
+            updateSortLabel();
             updateViewUI();
             fetchFromCloud();
+            restorePendingUploadsFromDB();
         }
 
         async function fetchFromCloud() {
@@ -641,6 +754,54 @@
             }
         }
 
+        // --- Persistent Sorting ---
+        const SORT_OPTIONS = [
+            { id: "newest", label: "Newest First", short: "Newest" },
+            { id: "oldest", label: "Oldest First", short: "Oldest" },
+            { id: "name_asc", label: "Name (A → Z)", short: "A–Z" },
+            { id: "name_desc", label: "Name (Z → A)", short: "Z–A" }
+        ];
+
+        function updateSortLabel() {
+            const found = SORT_OPTIONS.find(o => o.id === sortMode) || SORT_OPTIONS[0];
+            document.getElementById("sortBtnLabel").innerText = found.short;
+        }
+
+        function openSortModal() {
+            const list = document.getElementById("sortOptionsList");
+            list.innerHTML = "";
+            SORT_OPTIONS.forEach(opt => {
+                const btn = document.createElement("button");
+                btn.className = "folder-opt" + (sortMode === opt.id ? " active" : "");
+                btn.innerHTML = `<span>${opt.label}</span>${sortMode === opt.id ? "<span>✓</span>" : ""}`;
+                btn.onclick = () => {
+                    sortMode = opt.id;
+                    localStorage.setItem("td_sort", sortMode);
+                    updateSortLabel();
+                    closeModal("sortModal");
+                    renderFiles();
+                };
+                list.appendChild(btn);
+            });
+            document.getElementById("sortModal").classList.add("open");
+        }
+
+        function applySortToList(arr, sourceArray) {
+            const list = arr.slice();
+            if (sortMode === "name_asc") {
+                list.sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { numeric: true, sensitivity: "base" }));
+            } else if (sortMode === "name_desc") {
+                list.sort((a, b) => (b.name || "").localeCompare(a.name || "", undefined, { numeric: true, sensitivity: "base" }));
+            } else if (sortMode === "oldest") {
+                list.sort((a, b) => sourceArray.indexOf(a) - sourceArray.indexOf(b));
+            } else {
+                // newest first
+                list.sort((a, b) => sourceArray.indexOf(b) - sourceArray.indexOf(a));
+            }
+            return list;
+        }
+
+        // --- View & Pinch-to-Resize Grid ---
         function toggleView() {
             isGrid = !isGrid;
             localStorage.setItem("td_grid", isGrid);
@@ -649,9 +810,47 @@
 
         function updateViewUI() {
             const c = document.getElementById("fileContainer");
+            c.style.setProperty("--grid-cols", gridCols);
             c.className = (isGrid ? "grid-view" : "list-view") + (isMultiSelect ? " multi-mode" : "");
             document.getElementById("btnView").innerHTML = isGrid ? ICONS.list : ICONS.grid;
         }
+
+        const fileContainerEl = document.getElementById("fileContainer");
+        fileContainerEl.addEventListener("touchstart", (e) => {
+            if (isGrid && e.touches.length === 2) {
+                gridPinchActive = true;
+                gridPinchStartDist = Math.hypot(
+                    e.touches[1].clientX - e.touches[0].clientX,
+                    e.touches[1].clientY - e.touches[0].clientY
+                );
+            }
+        }, { passive: true });
+
+        fileContainerEl.addEventListener("touchmove", (e) => {
+            if (!gridPinchActive || !isGrid || e.touches.length !== 2) return;
+            e.preventDefault();
+            const dist = Math.hypot(
+                e.touches[1].clientX - e.touches[0].clientX,
+                e.touches[1].clientY - e.touches[0].clientY
+            );
+            const delta = dist - gridPinchStartDist;
+            if (Math.abs(delta) > 55) {
+                // Pinch out (positive delta) = larger thumbnails (fewer columns)
+                // Pinch in (negative delta) = smaller thumbnails (more columns)
+                const nextCols = delta > 0 ? Math.max(2, gridCols - 1) : Math.min(5, gridCols + 1);
+                if (nextCols !== gridCols) {
+                    gridCols = nextCols;
+                    localStorage.setItem("td_grid_cols", gridCols);
+                    fileContainerEl.style.setProperty("--grid-cols", gridCols);
+                    showStatus(`Grid size: ${gridCols} columns`);
+                }
+                gridPinchStartDist = dist;
+            }
+        }, { passive: false });
+
+        fileContainerEl.addEventListener("touchend", (e) => {
+            if (e.touches.length < 2) gridPinchActive = false;
+        }, { passive: true });
 
         function toggleTrash() {
             if (isMultiSelect) exitMultiSelect();
@@ -670,44 +869,48 @@
             if (currentPath !== "/") history.back();
         }
 
-        // --- Folder Rename ---
-        function openRenameModal(folderItem) {
-            folderToRename = folderItem;
-            const inp = document.getElementById("renameFolderInput");
-            inp.value = folderItem.name || "";
+        // --- Rename File or Folder ---
+        function openRenameModal(item) {
+            itemToRename = item;
+            document.getElementById("renameModalTitle").innerText = item.type === "folder" ? "Rename Folder" : "Rename File";
+            const inp = document.getElementById("renameItemInput");
+            inp.value = item.name || "";
             document.getElementById("renameModal").classList.add("open");
             setTimeout(() => { inp.focus(); inp.select(); }, 100);
         }
 
-        async function confirmRenameFolder() {
-            if (!folderToRename) return;
-            const newName = document.getElementById("renameFolderInput").value.trim().replace(/\//g, "");
-            if (!newName || newName === folderToRename.name) {
+        async function confirmRenameItem() {
+            if (!itemToRename) return;
+            const newName = document.getElementById("renameItemInput").value.trim().replace(/\//g, "");
+            if (!newName || newName === itemToRename.name) {
                 closeModal("renameModal");
                 return;
             }
-            const basePath = folderToRename.path || "/";
-            const oldPrefix = basePath + folderToRename.name + "/";
-            const newPrefix = basePath + newName + "/";
 
-            folderToRename.name = newName;
-            // Update paths of all nested files and folders
-            fileHistory.forEach(item => {
-                if (item.path && item.path.startsWith(oldPrefix)) {
-                    item.path = newPrefix + item.path.slice(oldPrefix.length);
-                }
-            });
+            if (itemToRename.type === "folder") {
+                const basePath = itemToRename.path || "/";
+                const oldPrefix = basePath + itemToRename.name + "/";
+                const newPrefix = basePath + newName + "/";
+                itemToRename.name = newName;
+                fileHistory.forEach(it => {
+                    if (it.path && it.path.startsWith(oldPrefix)) {
+                        it.path = newPrefix + it.path.slice(oldPrefix.length);
+                    }
+                });
+            } else {
+                itemToRename.name = newName;
+            }
 
             closeModal("renameModal");
-            folderToRename = null;
+            itemToRename = null;
+            if (isMultiSelect) exitMultiSelect();
             renderFiles();
             await syncToCloud();
-            showStatus("Folder rename ho gaya!");
+            showStatus("Rename ho gaya!");
         }
 
-        // --- Multi-Select Logic ---
+        // --- Multi-Select Logic (Normal + Recycle Bin) ---
         function enterMultiSelect(firstItem) {
-            if (inTrash) return;
             if (!isMultiSelect) {
                 isMultiSelect = true;
                 history.pushState({ view: "multiselect" }, "");
@@ -731,6 +934,39 @@
             renderFiles();
         }
 
+        function updateBatchBarUI() {
+            document.getElementById("selectedCountText").innerText = `${selectedItems.size} selected`;
+            const wrap = document.getElementById("batchActionsWrap");
+            wrap.innerHTML = "";
+
+            const mkBtn = (icon, title, cls, fn, label = "") => {
+                const b = document.createElement("button");
+                b.className = "batch-btn " + cls;
+                b.title = title;
+                b.innerHTML = icon + (label ? `<span>${label}</span>` : "");
+                b.onclick = fn;
+                return b;
+            };
+
+            // Select All
+            wrap.appendChild(mkBtn(ICONS.selectAll, "Select All", "", selectAllVisible));
+
+            if (inTrash) {
+                // Recycle Bin Bulk Actions
+                wrap.appendChild(mkBtn(ICONS.restore, "Restore Selected", "success", executeBatchRestore));
+                wrap.appendChild(mkBtn(ICONS.trash, "Delete Permanently", "danger", confirmBatchPermanentDelete));
+            } else {
+                // Normal Drive Bulk Actions
+                if (selectedItems.size === 1) {
+                    const onlyItem = [...selectedItems][0];
+                    wrap.appendChild(mkBtn(ICONS.rename, "Rename", "", () => openRenameModal(onlyItem)));
+                }
+                wrap.appendChild(mkBtn(ICONS.download, "Download", "primary", openBatchDownloadModal));
+                wrap.appendChild(mkBtn(ICONS.move, "Move", "", openBatchMoveModal));
+                wrap.appendChild(mkBtn(ICONS.trash, "Delete", "danger", confirmBatchDelete));
+            }
+        }
+
         function toggleItemSelection(item) {
             if (selectedItems.has(item)) selectedItems.delete(item);
             else selectedItems.add(item);
@@ -739,7 +975,7 @@
                 exitMultiSelect();
                 return;
             }
-            document.getElementById("selectedCountText").innerText = `${selectedItems.size} selected`;
+            updateBatchBarUI();
             renderFiles();
         }
 
@@ -748,7 +984,7 @@
                 exitMultiSelect();
             } else {
                 currentVisibleItems.forEach(i => selectedItems.add(i));
-                document.getElementById("selectedCountText").innerText = `${selectedItems.size} selected`;
+                updateBatchBarUI();
                 renderFiles();
             }
         }
@@ -838,7 +1074,7 @@
             folderPaths.forEach(fp => {
                 const btn = document.createElement("button");
                 btn.className = "folder-opt";
-                btn.innerText = fp === "/" ? "🏠 Home (/)" : "📁 " + fp;
+                btn.innerText = fp === "/" ? "Home (/)" : fp;
                 btn.onclick = () => executeBatchMove(fp);
                 listEl.appendChild(btn);
             });
@@ -879,11 +1115,100 @@
             });
         }
 
+        // --- Recycle Bin Bulk Actions (Rate-limit safe) ---
+        async function executeBatchRestore() {
+            const toRestore = [...selectedItems];
+            if (toRestore.length === 0) return;
+            toRestore.forEach(item => {
+                const idx = trashHistory.indexOf(item);
+                if (idx !== -1) {
+                    trashHistory.splice(idx, 1);
+                    fileHistory.push(item);
+                }
+            });
+            exitMultiSelect();
+            renderFiles();
+            await syncToCloud();
+            showStatus(`${toRestore.length} item(s) restore ho gaye!`);
+        }
+
+        async function deleteTelegramMessageSafe(msgId) {
+            if (!msgId) return;
+            for (let attempt = 0; attempt < 3; attempt++) {
+                try {
+                    const res = await fetch(`https://api.telegram.org/bot${botToken}/deleteMessage?chat_id=${encodeURIComponent(chatId)}&message_id=${encodeURIComponent(msgId)}`);
+                    if (res.status === 429) {
+                        const data = await res.json().catch(() => ({}));
+                        const waitSec = (data.parameters && data.parameters.retry_after) ? data.parameters.retry_after : 4;
+                        showStatus(`Rate limit: ${waitSec}s ruk rahe hain...`, false);
+                        await new Promise(r => setTimeout(r, (waitSec + 1) * 1000));
+                        continue;
+                    }
+                    return;
+                } catch (e) {
+                    return;
+                }
+            }
+        }
+
+        function confirmBatchPermanentDelete() {
+            const count = selectedItems.size;
+            if (count === 0) return;
+            openConfirm("Hamesha ke liye delete karein?", `${count} selected item(s) Telegram aur Drive dono se permanently delete ho jayenge.`, "Delete Permanently", "btn-danger", async () => {
+                const toDelete = [...selectedItems];
+                exitMultiSelect();
+                for (let i = 0; i < toDelete.length; i++) {
+                    const item = toDelete[i];
+                    showStatus(`Deleting (${i + 1}/${toDelete.length})...`, false);
+                    if (item.msgId) {
+                        await deleteTelegramMessageSafe(item.msgId);
+                        if (toDelete.length > 3) await new Promise(r => setTimeout(r, 300));
+                    }
+                    const idx = trashHistory.indexOf(item);
+                    if (idx !== -1) trashHistory.splice(idx, 1);
+                }
+                renderFiles();
+                await syncToCloud();
+                showStatus(`${toDelete.length} item(s) permanently delete ho gaye!`);
+            });
+        }
+
         function getDefaultFileSvg(name) {
             if (isImageFile(name)) return ICONS.image;
             if (isVideoFile(name)) return ICONS.video;
             if (isPdfFile(name)) return ICONS.pdf;
             return ICONS.file;
+        }
+
+        function attachLongPress(card, item, onShortClick) {
+            let lpTimer = null;
+            let lpTriggered = false;
+
+            card.addEventListener("touchstart", (e) => {
+                if (e.touches.length > 1) { clearTimeout(lpTimer); return; }
+                lpTriggered = false;
+                lpTimer = setTimeout(() => {
+                    lpTriggered = true;
+                    if (navigator.vibrate) navigator.vibrate(25);
+                    enterMultiSelect(item);
+                }, 460);
+            }, { passive: true });
+
+            card.addEventListener("touchmove", () => { clearTimeout(lpTimer); }, { passive: true });
+            card.addEventListener("touchend", () => { clearTimeout(lpTimer); }, { passive: true });
+            card.addEventListener("contextmenu", (e) => {
+                e.preventDefault();
+                if (!isMultiSelect) enterMultiSelect(item);
+            });
+
+            card.onclick = () => {
+                if (lpTriggered) { lpTriggered = false; return; }
+                if (isMultiSelect) {
+                    toggleItemSelection(item);
+                    return;
+                }
+                onShortClick();
+            };
         }
 
         function renderFiles() {
@@ -895,16 +1220,28 @@
             container.innerHTML = "";
 
             if (inTrash) {
-                pathDisplay.innerText = "Recycle Bin";
+                pathDisplay.innerText = "Recycle Bin (Long-press to multi-select)";
                 btnBack.style.display = "none";
-                const list = trashHistory.filter(i => !query || (i.name || "").toLowerCase().includes(query));
+                const rawList = trashHistory.filter(i => !query || (i.name || "").toLowerCase().includes(query));
+                const list = applySortToList(rawList, trashHistory);
+                currentVisibleItems = list;
+
                 if (list.length === 0) {
                     container.innerHTML = `<div class="empty-msg">Recycle Bin khali hai</div>`;
                     return;
                 }
                 list.forEach(item => {
+                    const isSelected = selectedItems.has(item);
                     const card = document.createElement("div");
-                    card.className = "item-card";
+                    card.className = "item-card" + (isSelected ? " selected" : "");
+
+                    attachLongPress(card, item, () => {
+                        showStatus("Select karne ke liye long-press karein");
+                    });
+
+                    const check = document.createElement("div");
+                    check.className = "select-check";
+                    check.innerText = isSelected ? "✓" : "";
 
                     const left = document.createElement("div");
                     left.className = "item-left";
@@ -926,6 +1263,7 @@
                     const btnRes = document.createElement("button");
                     btnRes.className = "mini-btn";
                     btnRes.title = "Restore";
+                    btnRes.style.color = "var(--success)";
                     btnRes.innerHTML = ICONS.restore;
                     btnRes.onclick = (e) => { e.stopPropagation(); restoreItem(item); };
 
@@ -939,7 +1277,7 @@
                     };
 
                     actions.append(btnRes, btnDel);
-                    card.append(left, actions);
+                    card.append(check, left, actions);
                     container.appendChild(card);
                 });
                 return;
@@ -948,15 +1286,16 @@
             pathDisplay.innerText = currentPath === "/" ? "Home /" : "Home" + currentPath;
             btnBack.style.display = currentPath === "/" ? "none" : "inline-block";
 
-            const folders = fileHistory
+            const rawFolders = fileHistory
                 .filter(i => (i.path || "/") === currentPath && i.type === "folder")
-                .filter(i => !query || (i.name || "").toLowerCase().includes(query))
-                .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+                .filter(i => !query || (i.name || "").toLowerCase().includes(query));
 
-            const files = fileHistory
+            const rawFiles = fileHistory
                 .filter(i => (i.path || "/") === currentPath && i.type !== "folder")
-                .filter(i => !query || (i.name || "").toLowerCase().includes(query))
-                .reverse();
+                .filter(i => !query || (i.name || "").toLowerCase().includes(query));
+
+            const folders = applySortToList(rawFolders, fileHistory);
+            const files = applySortToList(rawFiles, fileHistory);
 
             currentMediaList = files.filter(f => isImageFile(f.name) || isVideoFile(f.name));
             const items = [...folders, ...files];
@@ -973,33 +1312,9 @@
                 const card = document.createElement("div");
                 card.className = "item-card" + (isSelected ? " selected" : "");
 
-                let lpTimer = null;
-                let lpTriggered = false;
-
-                card.addEventListener("touchstart", () => {
-                    lpTriggered = false;
-                    lpTimer = setTimeout(() => {
-                        lpTriggered = true;
-                        if (navigator.vibrate) navigator.vibrate(25);
-                        enterMultiSelect(item);
-                    }, 480);
-                }, { passive: true });
-
-                card.addEventListener("touchmove", () => { clearTimeout(lpTimer); }, { passive: true });
-                card.addEventListener("touchend", () => { clearTimeout(lpTimer); }, { passive: true });
-                card.addEventListener("contextmenu", (e) => {
-                    e.preventDefault();
-                    if (!isMultiSelect) enterMultiSelect(item);
-                });
-
-                card.onclick = () => {
-                    if (lpTriggered) { lpTriggered = false; return; }
-                    if (isMultiSelect) {
-                        toggleItemSelection(item);
-                        return;
-                    }
+                attachLongPress(card, item, () => {
                     isFolder ? openFolder(item.name) : handleFileClick(item);
-                };
+                });
 
                 const check = document.createElement("div");
                 check.className = "select-check";
@@ -1029,36 +1344,21 @@
 
                 left.append(thumb, info);
 
-                const actions = document.createElement("div");
-                actions.className = "item-actions";
+                card.append(check, left);
 
-                if (isFolder) {
-                    const btnRen = document.createElement("button");
-                    btnRen.className = "mini-btn";
-                    btnRen.title = "Rename Folder";
-                    btnRen.innerHTML = ICONS.rename;
-                    btnRen.onclick = (e) => { e.stopPropagation(); openRenameModal(item); };
-                    actions.appendChild(btnRen);
-                } else {
+                // Clean cards: only Download button on files (Delete & Rename via long-press)
+                if (!isFolder) {
+                    const actions = document.createElement("div");
+                    actions.className = "item-actions";
                     const btnDl = document.createElement("button");
                     btnDl.className = "mini-btn";
                     btnDl.title = "Download";
                     btnDl.innerHTML = ICONS.download;
                     btnDl.onclick = (e) => { e.stopPropagation(); downloadSingleFileProperly(item); };
                     actions.appendChild(btnDl);
+                    card.appendChild(actions);
                 }
 
-                const btnDel = document.createElement("button");
-                btnDel.className = "mini-btn del";
-                btnDel.title = "Move to Bin";
-                btnDel.innerHTML = ICONS.trash;
-                btnDel.onclick = (e) => {
-                    e.stopPropagation();
-                    openConfirm("Bin mein bhejein?", `Kya aap "${item.name}" ko Recycle Bin mein move karna chahte hain?`, "Move to Bin", "btn-danger", () => moveToTrash(item));
-                };
-                actions.appendChild(btnDel);
-
-                card.append(check, left, actions);
                 container.appendChild(card);
             });
         }
@@ -1088,26 +1388,29 @@
             showStatus("Folder ban gaya!");
         }
 
-        // --- Upload Manager & Queue ---
+        // --- Upload Manager & Queue (IndexedDB + Pause/Resume + Rate-Limit Safe) ---
         function openUploadModal() {
             renderUploadQueue();
             document.getElementById("uploadModal").classList.add("open");
         }
 
-        function handleUploadSelection(files) {
+        async function handleUploadSelection(files) {
             if (inTrash) return showStatus("Pehle Recycle Bin se bahar aayein.");
             if (!files || files.length === 0) return;
 
             for (let i = 0; i < files.length; i++) {
-                uploadTasks.push({
+                const task = {
                     id: Date.now() + "_" + Math.random().toString(36).slice(2, 7),
                     file: files[i],
                     name: files[i].name,
                     targetPath: currentPath,
                     status: "queued",
                     progress: 0,
+                    note: "",
                     xhr: null
-                });
+                };
+                uploadTasks.push(task);
+                idbSaveTask(task);
             }
             document.getElementById("fileInput").value = "";
             updateUploadFab();
@@ -1122,7 +1425,7 @@
                 if (!nextTask) break;
                 startUploadTask(nextTask);
             }
-            const anyActive = uploadTasks.some(t => t.status === "uploading" || t.status === "queued");
+            const anyActive = uploadTasks.some(t => t.status === "uploading" || t.status === "queued" || t.status === "waiting");
             if (anyActive) acquireWakeLock();
             else releaseWakeLock();
         }
@@ -1130,20 +1433,37 @@
         async function startUploadTask(task) {
             task.status = "uploading";
             task.progress = 0;
+            task.note = "";
             activeUploadCount++;
             updateUploadFab();
             renderUploadQueue();
 
             try {
                 const thumbBlob = await createImageThumbnail(task.file);
-                if (task.status === "cancelled") {
-                    activeUploadCount--;
-                    processUploadQueue();
-                    return;
+                if (task.status === "cancelled" || task.status === "paused") return;
+
+                let data = null;
+                for (let attempt = 0; attempt < 4; attempt++) {
+                    if (task.status === "cancelled" || task.status === "paused") return;
+                    const res = await uploadTaskWithXhr(task, thumbBlob);
+                    if (res.status === 429 || (res.json && res.json.error_code === 429)) {
+                        const waitSec = (res.json && res.json.parameters && res.json.parameters.retry_after) ? res.json.parameters.retry_after : 6;
+                        task.status = "waiting";
+                        task.note = `Rate limit: ${waitSec}s ruk rahe hain...`;
+                        renderUploadQueue();
+                        await new Promise(r => setTimeout(r, (waitSec + 1) * 1000));
+                        if (task.status === "cancelled" || task.status === "paused") return;
+                        task.status = "uploading";
+                        task.progress = 0;
+                        task.note = "";
+                        renderUploadQueue();
+                        continue;
+                    }
+                    data = res.json;
+                    break;
                 }
 
-                const data = await uploadTaskWithXhr(task, thumbBlob);
-                if (task.status === "cancelled") return;
+                if (task.status === "cancelled" || task.status === "paused") return;
 
                 if (data && data.ok && data.result) {
                     const r = data.result;
@@ -1160,7 +1480,8 @@
                         });
                         task.status = "done";
                         task.progress = 100;
-                        task.file = null; // free memory
+                        task.file = null;
+                        await idbDeleteTask(task.id);
                         await syncToCloud();
                         renderFiles();
                     } else {
@@ -1170,7 +1491,9 @@
                     task.status = "failed";
                 }
             } catch (e) {
-                if (task.status !== "cancelled") task.status = "failed";
+                if (task.status !== "cancelled" && task.status !== "paused") {
+                    task.status = "failed";
+                }
             } finally {
                 task.xhr = null;
                 activeUploadCount = Math.max(0, activeUploadCount - 1);
@@ -1200,41 +1523,61 @@
                     }
                 };
                 xhr.onload = () => {
-                    try { resolve(JSON.parse(xhr.responseText)); }
-                    catch (e) { reject(e); }
+                    let json = null;
+                    try { json = JSON.parse(xhr.responseText); } catch (e) {}
+                    resolve({ status: xhr.status, json });
                 };
                 xhr.onerror = () => reject(new Error("Network error"));
-                xhr.onabort = () => reject(new Error("Cancelled"));
+                xhr.onabort = () => reject(new Error("Aborted"));
                 xhr.send(formData);
             });
+        }
+
+        function pauseUploadTask(id) {
+            const task = uploadTasks.find(t => t.id === id);
+            if (!task) return;
+            task.status = "paused";
+            task.note = "Paused";
+            if (task.xhr) { try { task.xhr.abort(); } catch(e) {} }
+            updateUploadFab();
+            renderUploadQueue();
+            processUploadQueue();
+        }
+
+        function resumeUploadTask(id) {
+            const task = uploadTasks.find(t => t.id === id);
+            if (!task || !task.file) return;
+            task.status = "queued";
+            task.progress = 0;
+            task.note = "";
+            updateUploadFab();
+            renderUploadQueue();
+            processUploadQueue();
+        }
+
+        function resumeAllPausedUploads() {
+            uploadTasks.forEach(t => {
+                if ((t.status === "paused" || t.status === "failed") && t.file) {
+                    t.status = "queued";
+                    t.progress = 0;
+                    t.note = "";
+                }
+            });
+            updateUploadFab();
+            renderUploadQueue();
+            processUploadQueue();
         }
 
         function cancelUploadTask(id) {
             const task = uploadTasks.find(t => t.id === id);
             if (!task) return;
             task.status = "cancelled";
-            if (task.xhr) {
-                try { task.xhr.abort(); } catch(e) {}
-            }
-            updateUploadFab();
-            renderUploadQueue();
-            processUploadQueue();
-        }
-
-        function retryUploadTask(id) {
-            const task = uploadTasks.find(t => t.id === id);
-            if (!task || !task.file) return;
-            task.status = "queued";
-            task.progress = 0;
-            updateUploadFab();
-            renderUploadQueue();
-            processUploadQueue();
-        }
-
-        function removeUploadTask(id) {
+            if (task.xhr) { try { task.xhr.abort(); } catch(e) {} }
+            idbDeleteTask(id);
             uploadTasks = uploadTasks.filter(t => t.id !== id);
             updateUploadFab();
             renderUploadQueue();
+            processUploadQueue();
         }
 
         function clearCompletedUploads() {
@@ -1252,11 +1595,16 @@
                 return;
             }
             fab.classList.add("visible");
-            const active = uploadTasks.filter(t => t.status === "uploading" || t.status === "queued").length;
+            const active = uploadTasks.filter(t => t.status === "uploading" || t.status === "queued" || t.status === "waiting").length;
+            const paused = uploadTasks.filter(t => t.status === "paused" || t.status === "failed").length;
             const done = uploadTasks.filter(t => t.status === "done").length;
+
             if (active > 0) {
                 dot.className = "fab-dot pulse";
                 text.innerText = `Uploading (${active})`;
+            } else if (paused > 0) {
+                dot.className = "fab-dot paused";
+                text.innerText = `Paused (${paused})`;
             } else {
                 dot.className = "fab-dot";
                 text.innerText = `Uploads (${done} done)`;
@@ -1265,11 +1613,14 @@
 
         function renderUploadQueue() {
             const body = document.getElementById("uploadQueueBody");
+            const resumeAllBtn = document.getElementById("btnResumeAll");
             if (!body) return;
             body.innerHTML = "";
 
             const activeList = uploadTasks.filter(t => t.status !== "done");
             const doneList = uploadTasks.filter(t => t.status === "done");
+            const hasPaused = activeList.some(t => (t.status === "paused" || t.status === "failed") && t.file);
+            if (resumeAllBtn) resumeAllBtn.style.display = hasPaused ? "inline-flex" : "none";
 
             if (uploadTasks.length === 0) {
                 body.innerHTML = `<div class="empty-msg" style="padding:24px;">Abhi koi upload nahi hai</div>`;
@@ -1289,8 +1640,9 @@
                     let statusText = "Waiting in queue...";
                     let statusCls = "";
                     if (t.status === "uploading") { statusText = `Uploading... ${t.progress}%`; statusCls = "uploading"; }
-                    else if (t.status === "failed") { statusText = "Failed (Tap retry)"; statusCls = "failed"; }
-                    else if (t.status === "cancelled") { statusText = "Cancelled"; statusCls = "failed"; }
+                    else if (t.status === "waiting") { statusText = t.note || "Waiting (Rate limit)..."; statusCls = "paused"; }
+                    else if (t.status === "paused") { statusText = t.note || "Paused"; statusCls = "paused"; }
+                    else if (t.status === "failed") { statusText = "Failed (Tap resume)"; statusCls = "failed"; }
 
                     div.innerHTML = `
                         <div class="queue-top">
@@ -1303,29 +1655,29 @@
                     div.querySelector(".queue-name").innerText = t.name;
 
                     const btns = div.querySelector(".queue-btns");
-                    if (t.status === "uploading" || t.status === "queued") {
-                        const cBtn = document.createElement("button");
-                        cBtn.className = "q-btn cancel";
-                        cBtn.title = "Cancel";
-                        cBtn.innerText = "✕";
-                        cBtn.onclick = () => cancelUploadTask(t.id);
-                        btns.appendChild(cBtn);
-                    } else {
-                        if (t.file) {
-                            const rBtn = document.createElement("button");
-                            rBtn.className = "q-btn retry";
-                            rBtn.title = "Retry";
-                            rBtn.innerText = "🔄";
-                            rBtn.onclick = () => retryUploadTask(t.id);
-                            btns.appendChild(rBtn);
-                        }
-                        const dBtn = document.createElement("button");
-                        dBtn.className = "q-btn cancel";
-                        dBtn.title = "Remove";
-                        dBtn.innerText = "✕";
-                        dBtn.onclick = () => removeUploadTask(t.id);
-                        btns.appendChild(dBtn);
+                    if (t.status === "uploading" || t.status === "queued" || t.status === "waiting") {
+                        const pBtn = document.createElement("button");
+                        pBtn.className = "q-btn pause";
+                        pBtn.title = "Pause";
+                        pBtn.innerHTML = ICONS.pause;
+                        pBtn.onclick = () => pauseUploadTask(t.id);
+                        btns.appendChild(pBtn);
+                    } else if (t.file) {
+                        const rBtn = document.createElement("button");
+                        rBtn.className = "q-btn retry";
+                        rBtn.title = "Resume";
+                        rBtn.innerHTML = ICONS.play;
+                        rBtn.onclick = () => resumeUploadTask(t.id);
+                        btns.appendChild(rBtn);
                     }
+
+                    const cBtn = document.createElement("button");
+                    cBtn.className = "q-btn cancel";
+                    cBtn.title = "Cancel";
+                    cBtn.innerHTML = ICONS.close;
+                    cBtn.onclick = () => cancelUploadTask(t.id);
+                    btns.appendChild(cBtn);
+
                     body.appendChild(div);
                 });
             }
@@ -1354,7 +1706,7 @@
 
         function createImageThumbnail(file) {
             return new Promise((resolve) => {
-                if (!file || !file.type.startsWith("image/")) return resolve(null);
+                if (!file || !file.type || !file.type.startsWith("image/")) return resolve(null);
                 const img = new Image();
                 const objUrl = URL.createObjectURL(file);
                 img.onload = () => {
@@ -1372,7 +1724,7 @@
             });
         }
 
-        // --- Media Viewer with Zoom & Swipe ---
+        // --- Media Viewer with Instant Blur-Up HD Loading, Zoom & Swipe ---
         function handleFileClick(item) {
             if (isImageFile(item.name) || isVideoFile(item.name)) {
                 const idx = currentMediaList.findIndex(m => m === item || m.fileId === item.fileId);
@@ -1411,34 +1763,8 @@
 
             const content = document.getElementById("viewerContent");
             const hint = document.getElementById("viewerHint");
-            content.innerHTML = `<div style="color:#94a3b8;font-size:14px;">Loading...</div>`;
-            hint.innerText = "";
-
-            const url = await getTelegramDirectUrl(item.fileId);
-            if (!isViewerOpen || currentMediaIndex !== idx) return;
-
-            if (!url) {
-                content.innerHTML = `<div style="color:#f87171;font-size:14px;padding:20px;text-align:center;">File 20MB se badi hai ya load nahi ho payi.</div>`;
-                return;
-            }
-
             content.innerHTML = "";
-            if (isImageFile(item.name)) {
-                const img = document.createElement("img");
-                img.id = "activeZoomImg";
-                img.src = url;
-                img.draggable = false;
-                content.appendChild(img);
-                hint.innerText = "Pinch ya double-tap se zoom karein • Swipe se next/prev";
-            } else {
-                const vid = document.createElement("video");
-                vid.src = buildWorkerUrl(url, item.name, false);
-                vid.controls = true;
-                vid.autoplay = true;
-                vid.playsInline = true;
-                content.appendChild(vid);
-                hint.innerText = "Swipe se next/prev media dekhein";
-            }
+            hint.innerText = "";
 
             document.getElementById("viewerDownloadBtn").onclick = () => downloadSingleFileProperly(item);
             document.getElementById("viewerDeleteBtn").onclick = () => {
@@ -1452,6 +1778,80 @@
                     }
                 });
             };
+
+            if (isImageFile(item.name)) {
+                hint.innerText = "Pinch ya double-tap se zoom karein • Swipe se next/prev";
+
+                // Step 1: Instantly show cached thumbnail with blur-up
+                const img = document.createElement("img");
+                img.id = "activeZoomImg";
+                img.draggable = false;
+
+                const badge = document.createElement("div");
+                badge.className = "hd-badge";
+                badge.innerText = "Loading HD...";
+
+                const thumbId = item.thumbFileId;
+                const cachedThumbUrl = thumbId ? urlCache[thumbId] : null;
+
+                if (cachedThumbUrl) {
+                    img.src = cachedThumbUrl;
+                    img.classList.add("blur-loading");
+                    content.append(img, badge);
+                } else {
+                    content.innerHTML = `<div style="color:#94a3b8;font-size:14px;">Loading...</div>`;
+                }
+
+                // Step 2: Load Full HD image in background
+                const fullUrl = await getTelegramDirectUrl(item.fileId);
+                if (!isViewerOpen || currentMediaIndex !== idx) return;
+
+                if (!fullUrl) {
+                    if (!cachedThumbUrl) {
+                        content.innerHTML = `<div style="color:#f87171;font-size:14px;padding:20px;text-align:center;">File 20MB se badi hai ya load nahi ho payi.</div>`;
+                    } else {
+                        badge.innerText = "HD unavailable (20MB+ limit)";
+                    }
+                    return;
+                }
+
+                const hdLoader = new Image();
+                hdLoader.onload = () => {
+                    if (!isViewerOpen || currentMediaIndex !== idx) return;
+                    if (!content.contains(img)) {
+                        content.innerHTML = "";
+                        content.appendChild(img);
+                    }
+                    img.src = fullUrl;
+                    img.classList.remove("blur-loading");
+                    if (badge.parentNode) badge.remove();
+                };
+                hdLoader.onerror = () => {
+                    if (badge.parentNode) badge.remove();
+                };
+                hdLoader.src = fullUrl;
+
+                // Preload next photo URL quietly
+                if (idx + 1 < currentMediaList.length && isImageFile(currentMediaList[idx + 1].name)) {
+                    getTelegramDirectUrl(currentMediaList[idx + 1].fileId);
+                }
+            } else {
+                content.innerHTML = `<div style="color:#94a3b8;font-size:14px;">Loading video...</div>`;
+                const url = await getTelegramDirectUrl(item.fileId);
+                if (!isViewerOpen || currentMediaIndex !== idx) return;
+                if (!url) {
+                    content.innerHTML = `<div style="color:#f87171;font-size:14px;padding:20px;text-align:center;">Video 20MB se badi hai ya load nahi ho payi.</div>`;
+                    return;
+                }
+                content.innerHTML = "";
+                const vid = document.createElement("video");
+                vid.src = buildWorkerUrl(url, item.name, false);
+                vid.controls = true;
+                vid.autoplay = true;
+                vid.playsInline = true;
+                content.appendChild(vid);
+                hint.innerText = "Swipe se next/prev media dekhein";
+            }
         }
 
         function stepMedia(dir) {
@@ -1575,11 +1975,7 @@
             const idx = trashHistory.findIndex(x => x === item || JSON.stringify(x) === JSON.stringify(item));
             if (idx === -1) return;
             showStatus("Deleting permanently...", false);
-            if (item.msgId) {
-                try {
-                    await fetch(`https://api.telegram.org/bot${botToken}/deleteMessage?chat_id=${encodeURIComponent(chatId)}&message_id=${encodeURIComponent(item.msgId)}`);
-                } catch (e) {}
-            }
+            if (item.msgId) await deleteTelegramMessageSafe(item.msgId);
             trashHistory.splice(idx, 1);
             renderFiles();
             await syncToCloud();
@@ -1590,4 +1986,3 @@
     </script>
 </body>
 </html>
-
