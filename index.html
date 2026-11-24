@@ -4,33 +4,71 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex, nofollow">
-    <title>TeleCloud Drive v6</title>
+    <title>TeleCloud Drive v7</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         :root {
             --bg: #f8fafc;
             --surface: #ffffff;
             --surface-2: #f1f5f9;
+            --topbar-bg: rgba(255, 255, 255, 0.94);
+            --batch-bg: rgba(240, 249, 255, 0.97);
+            --batch-border: #bae6fd;
             --text: #0f172a;
             --muted: #64748b;
             --border: #e2e8f0;
             --primary: #0284c7;
             --primary-soft: #e0f2fe;
+            --selected-bg: #f0f9ff;
             --danger: #ef4444;
             --danger-soft: #fee2e2;
+            --danger-border: #fecaca;
             --success: #16a34a;
             --success-soft: #dcfce7;
+            --success-border: #bbf7d0;
             --warn: #d97706;
             --warn-soft: #fef3c7;
+            --folder-bg: #fef3c7;
+            --folder-color: #d97706;
+            --toast-bg: #0f172a;
+            --toast-text: #ffffff;
             --radius: 14px;
             --shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
             --grid-cols: 3;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif; -webkit-tap-highlight-color: transparent; }
-        body { background: var(--bg); color: var(--text); padding-bottom: 100px; min-height: 100vh; }
+        [data-theme="dark"] {
+            --bg: #0b1120;
+            --surface: #151e2e;
+            --surface-2: #1e293b;
+            --topbar-bg: rgba(21, 30, 46, 0.94);
+            --batch-bg: rgba(14, 41, 64, 0.96);
+            --batch-border: #0369a1;
+            --text: #f1f5f9;
+            --muted: #94a3b8;
+            --border: #263449;
+            --primary: #38bdf8;
+            --primary-soft: rgba(56, 189, 248, 0.16);
+            --selected-bg: rgba(56, 189, 248, 0.12);
+            --danger: #f87171;
+            --danger-soft: rgba(248, 113, 113, 0.16);
+            --danger-border: rgba(248, 113, 113, 0.35);
+            --success: #4ade80;
+            --success-soft: rgba(74, 222, 128, 0.16);
+            --success-border: rgba(74, 222, 128, 0.35);
+            --warn: #fbbf24;
+            --warn-soft: rgba(251, 191, 36, 0.16);
+            --folder-bg: rgba(251, 191, 36, 0.14);
+            --folder-color: #fbbf24;
+            --toast-bg: #e2e8f0;
+            --toast-text: #0f172a;
+            --shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+        }
 
-        #loginScreen { max-width: 400px; margin: 48px auto; padding: 28px 24px; background: var(--surface); border-radius: 20px; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(15, 23, 42, 0.07); width: calc(100% - 32px); }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background: var(--bg); color: var(--text); padding-bottom: 100px; min-height: 100vh; transition: background 0.2s, color 0.2s; }
+
+        #loginScreen { max-width: 400px; margin: 48px auto; padding: 28px 24px; background: var(--surface); border-radius: 20px; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12); width: calc(100% - 32px); }
         .brand-header { text-align: center; margin-bottom: 24px; }
         .brand-logo { width: 56px; height: 56px; background: var(--primary-soft); color: var(--primary); border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px; }
         .brand-header h2 { font-size: 22px; font-weight: 700; color: var(--text); }
@@ -43,46 +81,61 @@
 
         .btn { border: none; border-radius: 12px; padding: 11px 16px; font-size: 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: 0.15s; }
         .btn:active { transform: scale(0.97); }
-        .btn-primary { background: var(--primary); color: #fff; }
-        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-primary { background: var(--primary); color: #ffffff; }
+        [data-theme="dark"] .btn-primary { color: #0b1120; }
+        .btn-danger { background: var(--danger); color: #ffffff; }
+        [data-theme="dark"] .btn-danger { color: #0b1120; }
         .btn-soft { background: var(--surface-2); color: var(--text); }
         .btn-full { width: 100%; padding: 14px; font-size: 15px; margin-top: 6px; }
 
-        #workspace { display: none; max-width: 900px; margin: 0 auto; }
+        #workspace { display: none; max-width: 1180px; margin: 0 auto; }
 
-        .topbar { background: rgba(255, 255, 255, 0.94); backdrop-filter: blur(10px); padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 20; border-bottom: 1px solid var(--border); }
+        .topbar { background: var(--topbar-bg); backdrop-filter: blur(10px); padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 20; border-bottom: 1px solid var(--border); }
         .topbar-left { display: flex; align-items: center; gap: 10px; }
         .topbar-logo { width: 34px; height: 34px; background: var(--primary); color: #fff; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+        [data-theme="dark"] .topbar-logo { color: #0b1120; }
         .topbar h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
         .top-actions { display: flex; gap: 6px; }
-        .icon-btn { background: var(--surface-2); color: var(--text); border: none; border-radius: 10px; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.15s; }
+        .icon-btn { background: var(--surface-2); color: var(--text); border: 1px solid transparent; border-radius: 10px; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.15s; }
+        .icon-btn:hover { border-color: var(--border); }
         .icon-btn:active { transform: scale(0.93); }
 
         /* Modern Theme-Matched Batch Bar */
-        #batchBar { display: none; background: rgba(240, 249, 255, 0.97); backdrop-filter: blur(10px); color: var(--text); padding: 10px 14px; position: sticky; top: 0; z-index: 30; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1.5px solid #bae6fd; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.08); }
+        #batchBar { display: none; background: var(--batch-bg); backdrop-filter: blur(10px); color: var(--text); padding: 10px 14px; position: sticky; top: 0; z-index: 30; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1.5px solid var(--batch-border); box-shadow: 0 4px 14px rgba(2, 132, 199, 0.1); }
         #batchBar.active { display: flex; }
         .batch-left { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; color: var(--primary); }
         .batch-actions { display: flex; gap: 6px; align-items: center; }
-        .batch-btn { background: var(--surface); color: var(--text); border: 1px solid #bae6fd; border-radius: 10px; height: 36px; min-width: 36px; padding: 0 9px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; transition: 0.15s; }
+        .batch-btn { background: var(--surface); color: var(--text); border: 1px solid var(--batch-border); border-radius: 10px; height: 36px; min-width: 36px; padding: 0 9px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; transition: 0.15s; }
         .batch-btn:active { transform: scale(0.94); background: var(--primary-soft); }
         .batch-btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
-        .batch-btn.danger { background: var(--danger-soft); color: var(--danger); border-color: #fecaca; }
-        .batch-btn.success { background: var(--success-soft); color: var(--success); border-color: #bbf7d0; }
+        [data-theme="dark"] .batch-btn.primary { color: #0b1120; }
+        .batch-btn.danger { background: var(--danger-soft); color: var(--danger); border-color: var(--danger-border); }
+        .batch-btn.success { background: var(--success-soft); color: var(--success); border-color: var(--success-border); }
 
         .controls-wrap { padding: 12px 16px 6px; display: flex; flex-direction: column; gap: 10px; }
-        .search-row { display: flex; gap: 8px; align-items: center; }
-        .search-box { position: relative; flex: 1; }
-        .search-box input { width: 100%; padding: 11px 14px 11px 40px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); font-size: 14px; outline: none; }
+        .search-row { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; }
+        .search-box { position: relative; flex: 1; min-width: 0; }
+        .search-box input { width: 100%; padding: 11px 14px 11px 40px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 14px; outline: none; }
+        .search-box input::placeholder { color: var(--muted); }
         .search-box input:focus { border-color: var(--primary); }
         .search-box svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+
         .sort-btn { height: 42px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 12.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; flex-shrink: 0; }
         .sort-btn:active { background: var(--surface-2); }
+
+        .size-ctrl { display: none; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; height: 42px; overflow: hidden; flex-shrink: 0; }
+        .size-ctrl.visible { display: inline-flex; }
+        .size-btn { width: 34px; height: 100%; border: none; background: transparent; color: var(--text); font-size: 16px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+        .size-btn:hover { background: var(--surface-2); }
+        .size-btn:active { background: var(--primary-soft); color: var(--primary); }
+        .size-div { width: 1px; height: 20px; background: var(--border); }
 
         .action-pills { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
         .action-pills::-webkit-scrollbar { display: none; }
         .pill-btn { flex: 1; white-space: nowrap; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; }
         .pill-btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
-        .pill-btn.trash-active { background: var(--danger-soft); color: var(--danger); border-color: #fecaca; }
+        [data-theme="dark"] .pill-btn.primary { color: #0b1120; }
+        .pill-btn.trash-active { background: var(--danger-soft); color: var(--danger); border-color: var(--danger-border); }
 
         .path-bar { margin: 6px 16px 8px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
         .path-text { font-size: 13px; font-weight: 600; color: var(--primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -93,17 +146,19 @@
         .grid-view { display: grid; grid-template-columns: repeat(var(--grid-cols, 3), minmax(0, 1fr)); gap: 10px; }
 
         .item-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; transition: 0.15s; box-shadow: var(--shadow); position: relative; user-select: none; -webkit-user-select: none; }
+        .item-card:hover { border-color: var(--primary); }
         .item-card:active { transform: scale(0.99); }
-        .item-card.selected { border-color: var(--primary); background: #f0f9ff; }
+        .item-card.selected { border-color: var(--primary); background: var(--selected-bg); }
 
-        .select-check { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #cbd5e1; background: #fff; display: none; align-items: center; justify-content: center; flex-shrink: 0; font-size: 12px; font-weight: 700; color: #fff; }
+        .select-check { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--muted); background: var(--surface); display: none; align-items: center; justify-content: center; flex-shrink: 0; font-size: 12px; font-weight: 700; color: #fff; }
         .multi-mode .select-check { display: flex; }
         .item-card.selected .select-check { background: var(--primary); border-color: var(--primary); }
+        [data-theme="dark"] .item-card.selected .select-check { color: #0b1120; }
 
         .item-left { display: flex; align-items: center; gap: 12px; overflow: hidden; flex: 1; }
         .thumb-box { width: 46px; height: 46px; border-radius: 10px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; position: relative; }
         .thumb-box img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
-        .thumb-box.folder-bg { background: #fef3c7; color: #d97706; }
+        .thumb-box.folder-bg { background: var(--folder-bg); color: var(--folder-color); }
 
         .item-info { overflow: hidden; flex: 1; }
         .item-name { font-size: 14px; font-weight: 500; color: var(--text); word-break: break-word; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
@@ -122,12 +177,21 @@
         .grid-view .item-sub { display: none; }
         .grid-view .item-actions { justify-content: center; width: 100%; border-top: 1px solid var(--surface-2); padding-top: 6px; }
         .grid-view .mini-btn { flex: 1; height: 28px; }
-        .grid-view .select-check { position: absolute; top: 8px; right: 8px; z-index: 3; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+        .grid-view .select-check { position: absolute; top: 8px; right: 8px; z-index: 3; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+
+        @media (min-width: 768px) {
+            .controls-wrap { flex-direction: row; align-items: center; }
+            .search-row { flex: 1; }
+            .action-pills { flex-shrink: 0; padding-bottom: 0; }
+            .pill-btn { flex: 0 0 auto; padding: 10px 16px; }
+            .grid-view { gap: 12px; }
+        }
 
         .empty-msg { text-align: center; color: var(--muted); padding: 48px 20px; font-size: 14px; }
 
         /* Floating Upload Queue Button */
         #fabUploads { position: fixed; bottom: 22px; right: 18px; background: var(--primary); color: #fff; border: none; border-radius: 99px; height: 50px; padding: 0 18px; display: none; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; box-shadow: 0 8px 24px rgba(2, 132, 199, 0.35); cursor: pointer; z-index: 50; }
+        [data-theme="dark"] #fabUploads { color: #0b1120; }
         #fabUploads.visible { display: inline-flex; }
         .fab-dot { width: 9px; height: 9px; border-radius: 50%; background: #4ade80; }
         .fab-dot.pulse { background: #fde047; animation: pulseAnim 1s infinite; }
@@ -153,13 +217,13 @@
         .q-btn.pause { background: var(--warn-soft); color: var(--warn); }
 
         /* Modals */
-        .modal-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 250; padding: 16px; }
+        .modal-backdrop { position: fixed; inset: 0; background: rgba(2, 6, 23, 0.65); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 250; padding: 16px; }
         .modal-backdrop.open { display: flex; }
-        .modal-card { background: var(--surface); border-radius: 18px; width: 100%; max-width: 390px; padding: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); animation: pop 0.18s ease-out; max-height: 82vh; display: flex; flex-direction: column; }
+        .modal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; width: 100%; max-width: 390px; padding: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); animation: pop 0.18s ease-out; max-height: 82vh; display: flex; flex-direction: column; }
         @keyframes pop { from { transform: scale(0.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; color: var(--text); }
         .modal-desc { font-size: 14px; color: var(--muted); line-height: 1.45; margin-bottom: 14px; word-break: break-word; }
-        .modal-input { width: 100%; padding: 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 15px; margin-bottom: 14px; outline: none; }
+        .modal-input { width: 100%; padding: 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 15px; margin-bottom: 14px; outline: none; background: var(--bg); color: var(--text); }
         .modal-input:focus { border-color: var(--primary); }
         .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; flex-wrap: wrap; }
         .modal-list { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; flex: 1; }
@@ -180,7 +244,7 @@
         .viewer-body img.blur-loading { filter: blur(8px); }
         .viewer-body video { max-width: 100%; max-height: 100%; border-radius: 6px; object-fit: contain; }
 
-        .hd-badge { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.78); color: #e2e8f0; padding: 5px 12px; border-radius: 99px; font-size: 11px; font-weight: 600; z-index: 12; pointer-events: none; backdrop-filter: blur(4px); }
+        .hd-badge { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.82); color: #e2e8f0; padding: 5px 12px; border-radius: 99px; font-size: 11px; font-weight: 600; z-index: 12; pointer-events: none; backdrop-filter: blur(4px); }
 
         .nav-arrow { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.16); color: #fff; border: none; width: 42px; height: 52px; border-radius: 12px; font-size: 22px; font-weight: 700; cursor: pointer; z-index: 10; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
         .nav-arrow:active { background: rgba(255,255,255,0.3); }
@@ -191,7 +255,7 @@
         .viewer-bottom { padding: 12px 16px; display: flex; justify-content: center; gap: 12px; background: rgba(0,0,0,0.7); z-index: 5; }
         .viewer-hint { text-align: center; color: #94a3b8; font-size: 11px; padding: 4px 10px; background: rgba(0,0,0,0.7); }
 
-        #statusBar { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #fff; padding: 10px 18px; border-radius: 99px; font-size: 13px; font-weight: 500; display: none; z-index: 300; box-shadow: 0 8px 20px rgba(0,0,0,0.25); max-width: 90%; text-align: center; }
+        #statusBar { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--toast-bg); color: var(--toast-text); padding: 10px 18px; border-radius: 99px; font-size: 13px; font-weight: 600; display: none; z-index: 300; box-shadow: 0 8px 20px rgba(0,0,0,0.28); max-width: 90%; text-align: center; }
     </style>
 </head>
 <body>
@@ -206,7 +270,7 @@
         </div>
         <div class="input-group">
             <label>License Key</label>
-            <input type="text" id="inpKey" placeholder="e.g. VIP-DOST-1">
+            <input type="text" id="inpKey" placeholder="Enter your license key">
         </div>
         <div class="input-group">
             <label>Telegram Bot Token</label>
@@ -216,7 +280,7 @@
             <label>Channel / Chat ID</label>
             <input type="text" id="inpChatId" placeholder="e.g. -100123456789">
         </div>
-        <button class="btn btn-primary btn-full" onclick="login()">Enter Drive</button>
+        <button class="btn btn-primary btn-full" onclick="login()">Sign In</button>
     </div>
 
     <div id="workspace">
@@ -229,11 +293,12 @@
                 <h1>TeleCloud</h1>
             </div>
             <div class="top-actions">
+                <button class="icon-btn" id="btnTheme" onclick="toggleTheme()" title="Toggle Theme"></button>
                 <button class="icon-btn" id="btnView" onclick="toggleView()" title="Switch View"></button>
                 <button class="icon-btn" onclick="fetchFromCloud()" title="Sync">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
                 </button>
-                <button class="icon-btn" onclick="confirmLogout()" title="Logout">
+                <button class="icon-btn" onclick="confirmLogout()" title="Sign Out">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                 </button>
             </div>
@@ -242,7 +307,7 @@
         <!-- Modern Multi-Select Batch Bar -->
         <div id="batchBar">
             <div class="batch-left">
-                <button class="batch-btn" onclick="exitMultiSelect()" title="Cancel">
+                <button class="batch-btn" onclick="exitMultiSelect()" title="Cancel Selection">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
                 <span id="selectedCountText">0 selected</span>
@@ -256,6 +321,11 @@
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                     <input type="text" id="searchInput" placeholder="Search in this folder..." oninput="renderFiles()">
                 </div>
+                <div class="size-ctrl" id="gridSizeCtrl" title="Resize Thumbnails">
+                    <button class="size-btn" onclick="changeGridCols(1)" title="Smaller Thumbnails">−</button>
+                    <span class="size-div"></span>
+                    <button class="size-btn" onclick="changeGridCols(-1)" title="Larger Thumbnails">+</button>
+                </div>
                 <button class="sort-btn" onclick="openSortModal()" title="Sort">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>
                     <span id="sortBtnLabel">Sort</span>
@@ -268,11 +338,11 @@
                 </button>
                 <button class="pill-btn" onclick="openFolderModal()">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/><line x1="12" y1="10" x2="12" y2="16"/><line x1="9" y1="13" x2="15" y2="13"/></svg>
-                    Folder
+                    New Folder
                 </button>
                 <button class="pill-btn" id="btnTrash" onclick="toggleTrash()">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    Bin
+                    Recycle Bin
                 </button>
             </div>
         </div>
@@ -303,7 +373,7 @@
             <div class="modal-list" id="uploadQueueBody"></div>
             <div class="modal-actions">
                 <button class="btn btn-primary" id="btnResumeAll" style="display:none" onclick="resumeAllPausedUploads()">Resume All</button>
-                <button class="btn btn-soft" onclick="clearCompletedUploads()">Clear Done</button>
+                <button class="btn btn-soft" onclick="clearCompletedUploads()">Clear Completed</button>
                 <button class="btn btn-soft" onclick="closeModal('uploadModal')">Close</button>
             </div>
         </div>
@@ -324,10 +394,10 @@
     <div class="modal-backdrop" id="confirmModal">
         <div class="modal-card">
             <div class="modal-title" id="confirmTitle">Confirm</div>
-            <div class="modal-desc" id="confirmDesc">Are you sure?</div>
+            <div class="modal-desc" id="confirmDesc">Are you sure you want to continue?</div>
             <div class="modal-actions">
                 <button class="btn btn-soft" onclick="closeModal('confirmModal')">Cancel</button>
-                <button class="btn btn-danger" id="confirmOkBtn">Delete</button>
+                <button class="btn btn-danger" id="confirmOkBtn">Confirm</button>
             </div>
         </div>
     </div>
@@ -336,7 +406,7 @@
     <div class="modal-backdrop" id="folderModal">
         <div class="modal-card">
             <div class="modal-title">New Folder</div>
-            <input type="text" id="newFolderInput" class="modal-input" placeholder="Folder name...">
+            <input type="text" id="newFolderInput" class="modal-input" placeholder="Enter folder name">
             <div class="modal-actions">
                 <button class="btn btn-soft" onclick="closeModal('folderModal')">Cancel</button>
                 <button class="btn btn-primary" onclick="confirmCreateFolder()">Create</button>
@@ -348,7 +418,7 @@
     <div class="modal-backdrop" id="renameModal">
         <div class="modal-card">
             <div class="modal-title" id="renameModalTitle">Rename</div>
-            <input type="text" id="renameItemInput" class="modal-input" placeholder="Naya naam likhein...">
+            <input type="text" id="renameItemInput" class="modal-input" placeholder="Enter new name">
             <div class="modal-actions">
                 <button class="btn btn-soft" onclick="closeModal('renameModal')">Cancel</button>
                 <button class="btn btn-primary" onclick="confirmRenameItem()">Save</button>
@@ -360,7 +430,7 @@
     <div class="modal-backdrop" id="moveModal">
         <div class="modal-card">
             <div class="modal-title">Move to Folder</div>
-            <div class="modal-desc">Jis folder mein move karna hai use chunein:</div>
+            <div class="modal-desc">Select a destination folder:</div>
             <div class="modal-list" id="moveFolderList"></div>
             <div class="modal-actions">
                 <button class="btn btn-soft" onclick="closeModal('moveModal')">Cancel</button>
@@ -372,10 +442,10 @@
     <div class="modal-backdrop" id="dlChoiceModal">
         <div class="modal-card">
             <div class="modal-title">Download Options</div>
-            <div class="modal-desc" id="dlChoiceDesc">Kaise download karna chahte hain?</div>
+            <div class="modal-desc" id="dlChoiceDesc">Choose how you want to download the selected files:</div>
             <div class="modal-list">
-                <button class="btn btn-primary btn-full" onclick="closeModal('dlChoiceModal'); startBatchZipDownload();">Download as ZIP (1 File)</button>
-                <button class="btn btn-soft btn-full" onclick="closeModal('dlChoiceModal'); startBatchNormalDownload();">Download Normally (Alag-Alag)</button>
+                <button class="btn btn-primary btn-full" onclick="closeModal('dlChoiceModal'); startBatchZipDownload();">Download as ZIP (Single Archive)</button>
+                <button class="btn btn-soft btn-full" onclick="closeModal('dlChoiceModal'); startBatchNormalDownload();">Download Individually</button>
             </div>
             <div class="modal-actions">
                 <button class="btn btn-soft" onclick="closeModal('dlChoiceModal')">Cancel</button>
@@ -400,7 +470,7 @@
         <div class="viewer-hint" id="viewerHint"></div>
         <div class="viewer-bottom">
             <button class="btn btn-primary" id="viewerDownloadBtn">Download</button>
-            <button class="btn btn-danger" id="viewerDeleteBtn">Delete</button>
+            <button class="btn btn-danger" id="viewerDeleteBtn">Move to Bin</button>
         </div>
     </div>
 
@@ -419,8 +489,17 @@
         let currentPath = "/";
         let inTrash = false;
         let isGrid = localStorage.getItem("td_grid") === "true";
-        let gridCols = Math.min(5, Math.max(2, parseInt(localStorage.getItem("td_grid_cols")) || 3));
         let sortMode = localStorage.getItem("td_sort") || "newest";
+        let themeMode = localStorage.getItem("td_theme") || "light";
+
+        function isDesktop() { return window.innerWidth >= 768; }
+        function getSavedGridCols() {
+            if (isDesktop()) {
+                return Math.min(8, Math.max(2, parseInt(localStorage.getItem("td_grid_cols_pc")) || 6));
+            }
+            return Math.min(5, Math.max(2, parseInt(localStorage.getItem("td_grid_cols_mob")) || 3));
+        }
+        let gridCols = getSavedGridCols();
 
         // Multi-select state
         let isMultiSelect = false;
@@ -431,15 +510,16 @@
         let itemToRename = null;
 
         // Upload Queue Manager state (IndexedDB backed)
-        let uploadTasks = []; // { id, file, name, targetPath, status: 'queued'|'uploading'|'paused'|'waiting'|'done'|'failed'|'cancelled', progress: 0, note: '', xhr: null }
+        let uploadTasks = [];
         let activeUploadCount = 0;
         const MAX_CONCURRENT_UPLOADS = 2;
         let wakeLock = null;
 
-        // Media viewer state
+        // Media viewer state + temporary in-memory preload (freed on close)
         let currentMediaList = [];
         let currentMediaIndex = 0;
         let isViewerOpen = false;
+        const viewerPreloadMap = new Map();
 
         // Zoom & Swipe state
         let zScale = 1, zX = 0, zY = 0;
@@ -453,23 +533,28 @@
         let gridPinchStartDist = 0;
         let gridPinchActive = false;
 
+        // Session URL cache & in-memory blob URLs for thumbnails
         const urlCache = JSON.parse(sessionStorage.getItem("td_url_cache") || "{}");
+        const thumbObjectUrls = new Map();
+
         function saveUrlCache() {
-            try { sessionStorage.setItem("td_url_cache", JSON.stringify(urlCache)); } catch(e) {}
+            try { sessionStorage.setItem("td_url_cache", JSON.stringify(urlCache)); } catch (e) {}
         }
 
         const ICONS = {
+            sun: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`,
+            moon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`,
             grid: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`,
             list: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,
             folder: `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>`,
             file: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,
-            video: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><polygon points="10 9 15 12 10 15 10 9" fill="#0284c7"/></svg>`,
-            image: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`,
-            pdf: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,
+            video: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><polygon points="10 9 15 12 10 15 10 9" fill="var(--primary)"/></svg>`,
+            image: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`,
+            pdf: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,
             download: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
             trash: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
             rename: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`,
-            move: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/><path d="M12 10v6"/><path d="m15 13-3 3-3-3"/></svg>`,
+            scissors: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>`,
             restore: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>`,
             selectAll: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
             play: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>`,
@@ -477,7 +562,21 @@
             close: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`
         };
 
-        // --- IndexedDB for Persistent Uploads across Page Refresh ---
+        // --- Theme Handling ---
+        function applyTheme() {
+            document.documentElement.setAttribute("data-theme", themeMode);
+            const btn = document.getElementById("btnTheme");
+            if (btn) btn.innerHTML = themeMode === "dark" ? ICONS.sun : ICONS.moon;
+        }
+
+        function toggleTheme() {
+            themeMode = themeMode === "dark" ? "light" : "dark";
+            localStorage.setItem("td_theme", themeMode);
+            applyTheme();
+        }
+        applyTheme();
+
+        // --- IndexedDB 1: Persistent Uploads across Page Refresh ---
         const IDB_NAME = "TeleCloudUploadsDB";
         const IDB_STORE = "tasks";
 
@@ -500,12 +599,7 @@
             try {
                 const db = await openUploadDB();
                 const tx = db.transaction(IDB_STORE, "readwrite");
-                tx.objectStore(IDB_STORE).put({
-                    id: task.id,
-                    name: task.name,
-                    targetPath: task.targetPath,
-                    file: task.file
-                });
+                tx.objectStore(IDB_STORE).put({ id: task.id, name: task.name, targetPath: task.targetPath, file: task.file });
             } catch (e) {}
         }
 
@@ -534,13 +628,84 @@
                                     targetPath: s.targetPath || "/",
                                     status: "paused",
                                     progress: 0,
-                                    note: "Paused (Page refreshed)",
+                                    note: "Paused after reload",
                                     xhr: null
                                 });
                             }
                         });
                         updateUploadFab();
-                        showStatus(`${saved.length} paused upload(s) mil gaye — Resume kar sakte hain!`);
+                        showStatus(`${saved.length} paused upload(s) restored. Open Upload Manager to resume.`);
+                    }
+                };
+            } catch (e) {}
+        }
+
+        // --- IndexedDB 2: Lightweight Local Thumbnail Cache (Max 500 small thumbs) ---
+        const THUMB_DB_NAME = "TeleCloudThumbCacheDB";
+        const THUMB_STORE = "thumbs";
+        const MAX_CACHED_THUMBS = 500;
+        let thumbDbPromise = null;
+
+        function openThumbDB() {
+            if (thumbDbPromise) return thumbDbPromise;
+            thumbDbPromise = new Promise((resolve, reject) => {
+                if (!window.indexedDB) return reject("No IDB");
+                const req = indexedDB.open(THUMB_DB_NAME, 1);
+                req.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(THUMB_STORE)) {
+                        const store = db.createObjectStore(THUMB_STORE, { keyPath: "id" });
+                        store.createIndex("ts", "ts", { unique: false });
+                    }
+                };
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+            return thumbDbPromise;
+        }
+
+        async function getCachedThumbUrl(thumbId) {
+            if (!thumbId) return null;
+            if (thumbObjectUrls.has(thumbId)) return thumbObjectUrls.get(thumbId);
+            try {
+                const db = await openThumbDB();
+                const blob = await new Promise((resolve) => {
+                    const tx = db.transaction(THUMB_STORE, "readonly");
+                    const req = tx.objectStore(THUMB_STORE).get(thumbId);
+                    req.onsuccess = () => resolve(req.result ? req.result.blob : null);
+                    req.onerror = () => resolve(null);
+                });
+                if (blob) {
+                    const objUrl = URL.createObjectURL(blob);
+                    thumbObjectUrls.set(thumbId, objUrl);
+                    return objUrl;
+                }
+            } catch (e) {}
+            return null;
+        }
+
+        async function saveThumbToCache(thumbId, blob) {
+            if (!thumbId || !blob || blob.size > 350000) return; // Only cache lightweight thumbnails (<350KB)
+            try {
+                const db = await openThumbDB();
+                const tx = db.transaction(THUMB_STORE, "readwrite");
+                const store = tx.objectStore(THUMB_STORE);
+                store.put({ id: thumbId, blob, ts: Date.now() });
+
+                // Evict oldest entries if cache exceeds limit
+                const countReq = store.count();
+                countReq.onsuccess = () => {
+                    if (countReq.result > MAX_CACHED_THUMBS) {
+                        const idx = store.index("ts");
+                        let toDelete = countReq.result - MAX_CACHED_THUMBS + 20;
+                        idx.openCursor().onsuccess = (ev) => {
+                            const cursor = ev.target.result;
+                            if (cursor && toDelete > 0) {
+                                store.delete(cursor.primaryKey);
+                                toDelete--;
+                                cursor.continue();
+                            }
+                        };
                     }
                 };
             } catch (e) {}
@@ -557,7 +722,7 @@
         }
 
         function releaseWakeLock() {
-            if (wakeLock) { try { wakeLock.release(); } catch(e) {} wakeLock = null; }
+            if (wakeLock) { try { wakeLock.release(); } catch (e) {} wakeLock = null; }
         }
 
         document.addEventListener("visibilitychange", () => {
@@ -656,7 +821,7 @@
         async function downloadSingleFileProperly(item) {
             showStatus(`Downloading ${item.name}...`, false);
             const tgUrl = await getTelegramDirectUrl(item.fileId);
-            if (!tgUrl) return showStatus("File 20MB se badi hai ya expire ho gayi hai.");
+            if (!tgUrl) return showStatus("File exceeds the 20 MB Bot API limit or is unavailable.");
             const dlUrl = buildWorkerUrl(tgUrl, item.name || "file", true);
             const a = document.createElement("a");
             a.href = dlUrl;
@@ -664,34 +829,71 @@
             document.body.appendChild(a);
             a.click();
             a.remove();
-            showStatus("Download started!");
+            showStatus("Download started.");
         }
 
+        // Lazy-load thumbnails with IndexedDB local cache
         const thumbObserver = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (!entry.isIntersecting) return;
                 const el = entry.target;
                 thumbObserver.unobserve(el);
                 const fid = el.dataset.thumbId;
+                const isDedicatedThumb = el.dataset.isThumb === "1";
                 if (!fid) return;
-                getTelegramDirectUrl(fid).then(url => {
-                    if (url) {
-                        const img = document.createElement("img");
-                        img.src = url;
-                        img.alt = "";
-                        img.onload = () => { el.innerHTML = ""; el.appendChild(img); };
-                    }
-                });
+
+                loadThumbnailIntoElement(el, fid, isDedicatedThumb);
             });
-        }, { rootMargin: "150px" });
+        }, { rootMargin: "180px" });
+
+        async function loadThumbnailIntoElement(el, fid, isDedicatedThumb) {
+            // 1. Try local IndexedDB cache first (0 API calls)
+            const cachedUrl = await getCachedThumbUrl(fid);
+            if (cachedUrl) {
+                const img = document.createElement("img");
+                img.src = cachedUrl;
+                img.alt = "";
+                el.innerHTML = "";
+                el.appendChild(img);
+                return;
+            }
+
+            // 2. Fetch from Telegram & cache lightweight thumbnails
+            const tgUrl = await getTelegramDirectUrl(fid);
+            if (!tgUrl) return;
+
+            if (isDedicatedThumb) {
+                try {
+                    const res = await fetch(buildWorkerUrl(tgUrl, "thumb.jpg", false));
+                    if (res.ok) {
+                        const blob = await res.blob();
+                        await saveThumbToCache(fid, blob);
+                        const objUrl = URL.createObjectURL(blob);
+                        thumbObjectUrls.set(fid, objUrl);
+                        const img = document.createElement("img");
+                        img.src = objUrl;
+                        img.alt = "";
+                        el.innerHTML = "";
+                        el.appendChild(img);
+                        return;
+                    }
+                } catch (e) {}
+            }
+
+            // Fallback direct render
+            const img = document.createElement("img");
+            img.src = tgUrl;
+            img.alt = "";
+            img.onload = () => { el.innerHTML = ""; el.appendChild(img); };
+        }
 
         async function login() {
             const k = document.getElementById("inpKey").value.trim();
             const t = document.getElementById("inpToken").value.trim();
             const c = document.getElementById("inpChatId").value.trim();
-            if (!k || !t || !c) return showStatus("Saari details bhariye!");
+            if (!k || !t || !c) return showStatus("Please fill in all fields.");
 
-            showStatus("Verifying Key...", false);
+            showStatus("Verifying license key...", false);
             try {
                 const res = await fetch(`${FIREBASE_URL}valid_keys/${encodeURIComponent(k)}.json`);
                 const val = await res.json();
@@ -702,15 +904,15 @@
                     localStorage.setItem("td_chatId", c);
                     openWorkspace();
                 } else {
-                    showStatus("Invalid License Key!");
+                    showStatus("Invalid license key.");
                 }
             } catch (e) {
-                showStatus("Network error! Dobara try karein.");
+                showStatus("Network error. Please try again.");
             }
         }
 
         function confirmLogout() {
-            openConfirm("Logout?", "Kya aap TeleCloud se logout karna chahte hain?", "Logout", "btn-danger", () => {
+            openConfirm("Sign Out?", "Are you sure you want to sign out of TeleCloud Drive?", "Sign Out", "btn-danger", () => {
                 localStorage.removeItem("td_key");
                 localStorage.removeItem("td_token");
                 localStorage.removeItem("td_chatId");
@@ -722,6 +924,7 @@
         function openWorkspace() {
             document.getElementById("loginScreen").style.display = "none";
             document.getElementById("workspace").style.display = "block";
+            applyTheme();
             updateSortLabel();
             updateViewUI();
             fetchFromCloud();
@@ -736,9 +939,9 @@
                 fileHistory = (data && Array.isArray(data.fileHistory)) ? data.fileHistory : [];
                 trashHistory = (data && Array.isArray(data.trashHistory)) ? data.trashHistory : [];
                 renderFiles();
-                showStatus("Synced!");
+                showStatus("Synced.");
             } catch (e) {
-                showStatus("Data load nahi ho paya.");
+                showStatus("Failed to sync with cloud.");
             }
         }
 
@@ -750,7 +953,7 @@
                     body: JSON.stringify({ fileHistory, trashHistory })
                 });
             } catch (e) {
-                showStatus("Cloud sync fail ho gaya.");
+                showStatus("Cloud sync failed.");
             }
         }
 
@@ -795,25 +998,46 @@
             } else if (sortMode === "oldest") {
                 list.sort((a, b) => sourceArray.indexOf(a) - sourceArray.indexOf(b));
             } else {
-                // newest first
                 list.sort((a, b) => sourceArray.indexOf(b) - sourceArray.indexOf(a));
             }
             return list;
         }
 
-        // --- View & Pinch-to-Resize Grid ---
+        // --- View, PC Resize Buttons & Mobile Pinch-to-Resize ---
         function toggleView() {
             isGrid = !isGrid;
             localStorage.setItem("td_grid", isGrid);
             updateViewUI();
         }
 
+        function changeGridCols(delta) {
+            if (!isGrid) return;
+            const maxCols = isDesktop() ? 8 : 5;
+            const nextCols = Math.min(maxCols, Math.max(2, gridCols + delta));
+            if (nextCols !== gridCols) {
+                gridCols = nextCols;
+                localStorage.setItem(isDesktop() ? "td_grid_cols_pc" : "td_grid_cols_mob", gridCols);
+                document.getElementById("fileContainer").style.setProperty("--grid-cols", gridCols);
+                showStatus(`Grid layout: ${gridCols} columns`);
+            }
+        }
+
         function updateViewUI() {
+            gridCols = getSavedGridCols();
             const c = document.getElementById("fileContainer");
             c.style.setProperty("--grid-cols", gridCols);
             c.className = (isGrid ? "grid-view" : "list-view") + (isMultiSelect ? " multi-mode" : "");
             document.getElementById("btnView").innerHTML = isGrid ? ICONS.list : ICONS.grid;
+            document.getElementById("gridSizeCtrl").classList.toggle("visible", isGrid);
         }
+
+        let lastWasDesktop = isDesktop();
+        window.addEventListener("resize", () => {
+            if (isDesktop() !== lastWasDesktop) {
+                lastWasDesktop = isDesktop();
+                updateViewUI();
+            }
+        });
 
         const fileContainerEl = document.getElementById("fileContainer");
         fileContainerEl.addEventListener("touchstart", (e) => {
@@ -835,15 +1059,7 @@
             );
             const delta = dist - gridPinchStartDist;
             if (Math.abs(delta) > 55) {
-                // Pinch out (positive delta) = larger thumbnails (fewer columns)
-                // Pinch in (negative delta) = smaller thumbnails (more columns)
-                const nextCols = delta > 0 ? Math.max(2, gridCols - 1) : Math.min(5, gridCols + 1);
-                if (nextCols !== gridCols) {
-                    gridCols = nextCols;
-                    localStorage.setItem("td_grid_cols", gridCols);
-                    fileContainerEl.style.setProperty("--grid-cols", gridCols);
-                    showStatus(`Grid size: ${gridCols} columns`);
-                }
+                changeGridCols(delta > 0 ? -1 : 1);
                 gridPinchStartDist = dist;
             }
         }, { passive: false });
@@ -906,7 +1122,7 @@
             if (isMultiSelect) exitMultiSelect();
             renderFiles();
             await syncToCloud();
-            showStatus("Rename ho gaya!");
+            showStatus("Renamed successfully.");
         }
 
         // --- Multi-Select Logic (Normal + Recycle Bin) ---
@@ -948,22 +1164,19 @@
                 return b;
             };
 
-            // Select All
             wrap.appendChild(mkBtn(ICONS.selectAll, "Select All", "", selectAllVisible));
 
             if (inTrash) {
-                // Recycle Bin Bulk Actions
                 wrap.appendChild(mkBtn(ICONS.restore, "Restore Selected", "success", executeBatchRestore));
                 wrap.appendChild(mkBtn(ICONS.trash, "Delete Permanently", "danger", confirmBatchPermanentDelete));
             } else {
-                // Normal Drive Bulk Actions
                 if (selectedItems.size === 1) {
                     const onlyItem = [...selectedItems][0];
                     wrap.appendChild(mkBtn(ICONS.rename, "Rename", "", () => openRenameModal(onlyItem)));
                 }
                 wrap.appendChild(mkBtn(ICONS.download, "Download", "primary", openBatchDownloadModal));
-                wrap.appendChild(mkBtn(ICONS.move, "Move", "", openBatchMoveModal));
-                wrap.appendChild(mkBtn(ICONS.trash, "Delete", "danger", confirmBatchDelete));
+                wrap.appendChild(mkBtn(ICONS.scissors, "Move / Cut", "", openBatchMoveModal));
+                wrap.appendChild(mkBtn(ICONS.trash, "Move to Bin", "danger", confirmBatchDelete));
             }
         }
 
@@ -991,13 +1204,13 @@
 
         function openBatchDownloadModal() {
             const filesOnly = [...selectedItems].filter(i => i.type !== "folder");
-            if (filesOnly.length === 0) return showStatus("Download ke liye kam se kam 1 file select karein.");
+            if (filesOnly.length === 0) return showStatus("Select at least one file to download.");
             if (filesOnly.length === 1) {
                 downloadSingleFileProperly(filesOnly[0]);
                 exitMultiSelect();
                 return;
             }
-            document.getElementById("dlChoiceDesc").innerText = `${filesOnly.length} files selected hain. Kaise download karein?`;
+            document.getElementById("dlChoiceDesc").innerText = `${filesOnly.length} files selected. Choose a download method:`;
             document.getElementById("dlChoiceModal").classList.add("open");
         }
 
@@ -1017,34 +1230,34 @@
                     await new Promise(r => setTimeout(r, 700));
                 }
             }
-            showStatus("Sabhi downloads start ho gaye!");
+            showStatus("All downloads started.");
         }
 
         async function startBatchZipDownload() {
             const filesOnly = [...selectedItems].filter(i => i.type !== "folder");
             exitMultiSelect();
-            if (typeof JSZip === "undefined") return showStatus("ZIP library load nahi hui, Normal download try karein.");
+            if (typeof JSZip === "undefined") return showStatus("ZIP library failed to load. Try downloading individually.");
 
             const zip = new JSZip();
             let added = 0;
 
             for (let i = 0; i < filesOnly.length; i++) {
                 const item = filesOnly[i];
-                showStatus(`Zipping (${i + 1}/${filesOnly.length}): ${item.name}...`, false);
+                showStatus(`Archiving (${i + 1}/${filesOnly.length}): ${item.name}...`, false);
                 try {
                     const tgUrl = await getTelegramDirectUrl(item.fileId);
                     if (!tgUrl) continue;
                     const res = await fetch(buildWorkerUrl(tgUrl, item.name, false));
                     if (!res.ok) continue;
                     const blob = await res.blob();
-                    zip.file(item.name || `file_${i+1}`, blob);
+                    zip.file(item.name || `file_${i + 1}`, blob);
                     added++;
                 } catch (e) {}
             }
 
-            if (added === 0) return showStatus("Koi bhi file ZIP mein add nahi ho payi.");
+            if (added === 0) return showStatus("No files could be added to the ZIP archive.");
 
-            showStatus("ZIP file ban rahi hai...", false);
+            showStatus("Generating ZIP archive...", false);
             const zipBlob = await zip.generateAsync({ type: "blob" });
             const url = URL.createObjectURL(zipBlob);
             const a = document.createElement("a");
@@ -1054,7 +1267,7 @@
             a.click();
             a.remove();
             setTimeout(() => URL.revokeObjectURL(url), 5000);
-            showStatus("ZIP download started!");
+            showStatus("ZIP download started.");
         }
 
         function openBatchMoveModal() {
@@ -1093,13 +1306,13 @@
             exitMultiSelect();
             renderFiles();
             await syncToCloud();
-            showStatus(`${movedCount} item(s) move ho gaye!`);
+            showStatus(`Moved ${movedCount} item(s).`);
         }
 
         function confirmBatchDelete() {
             const count = selectedItems.size;
             if (count === 0) return;
-            openConfirm("Bin mein bhejein?", `Kya aap ${count} selected item(s) ko Recycle Bin mein move karna chahte hain?`, "Move to Bin", "btn-danger", async () => {
+            openConfirm("Move to Recycle Bin?", `Move ${count} selected item(s) to the Recycle Bin?`, "Move to Bin", "btn-danger", async () => {
                 const toMove = [...selectedItems];
                 toMove.forEach(item => {
                     const idx = fileHistory.indexOf(item);
@@ -1111,7 +1324,7 @@
                 exitMultiSelect();
                 renderFiles();
                 await syncToCloud();
-                showStatus(`${toMove.length} item(s) Bin mein bhej diye!`);
+                showStatus(`Moved ${toMove.length} item(s) to Recycle Bin.`);
             });
         }
 
@@ -1129,18 +1342,18 @@
             exitMultiSelect();
             renderFiles();
             await syncToCloud();
-            showStatus(`${toRestore.length} item(s) restore ho gaye!`);
+            showStatus(`Restored ${toRestore.length} item(s).`);
         }
 
         async function deleteTelegramMessageSafe(msgId) {
             if (!msgId) return;
-            for (let attempt = 0; attempt < 3; attempt++) {
+            for (let attempt = 0; attempt < 5; attempt++) {
                 try {
                     const res = await fetch(`https://api.telegram.org/bot${botToken}/deleteMessage?chat_id=${encodeURIComponent(chatId)}&message_id=${encodeURIComponent(msgId)}`);
                     if (res.status === 429) {
                         const data = await res.json().catch(() => ({}));
                         const waitSec = (data.parameters && data.parameters.retry_after) ? data.parameters.retry_after : 4;
-                        showStatus(`Rate limit: ${waitSec}s ruk rahe hain...`, false);
+                        showStatus(`Rate limit reached. Waiting ${waitSec}s...`, false);
                         await new Promise(r => setTimeout(r, (waitSec + 1) * 1000));
                         continue;
                     }
@@ -1154,7 +1367,7 @@
         function confirmBatchPermanentDelete() {
             const count = selectedItems.size;
             if (count === 0) return;
-            openConfirm("Hamesha ke liye delete karein?", `${count} selected item(s) Telegram aur Drive dono se permanently delete ho jayenge.`, "Delete Permanently", "btn-danger", async () => {
+            openConfirm("Delete Permanently?", `${count} selected item(s) will be permanently deleted from both Telegram and TeleCloud.`, "Delete Permanently", "btn-danger", async () => {
                 const toDelete = [...selectedItems];
                 exitMultiSelect();
                 for (let i = 0; i < toDelete.length; i++) {
@@ -1169,7 +1382,7 @@
                 }
                 renderFiles();
                 await syncToCloud();
-                showStatus(`${toDelete.length} item(s) permanently delete ho gaye!`);
+                showStatus(`Permanently deleted ${toDelete.length} item(s).`);
             });
         }
 
@@ -1220,14 +1433,14 @@
             container.innerHTML = "";
 
             if (inTrash) {
-                pathDisplay.innerText = "Recycle Bin (Long-press to multi-select)";
+                pathDisplay.innerText = "Recycle Bin (Long-press or right-click to select)";
                 btnBack.style.display = "none";
                 const rawList = trashHistory.filter(i => !query || (i.name || "").toLowerCase().includes(query));
                 const list = applySortToList(rawList, trashHistory);
                 currentVisibleItems = list;
 
                 if (list.length === 0) {
-                    container.innerHTML = `<div class="empty-msg">Recycle Bin khali hai</div>`;
+                    container.innerHTML = `<div class="empty-msg">Recycle Bin is empty</div>`;
                     return;
                 }
                 list.forEach(item => {
@@ -1236,7 +1449,7 @@
                     card.className = "item-card" + (isSelected ? " selected" : "");
 
                     attachLongPress(card, item, () => {
-                        showStatus("Select karne ke liye long-press karein");
+                        showStatus("Long-press or right-click to select items.");
                     });
 
                     const check = document.createElement("div");
@@ -1273,7 +1486,7 @@
                     btnDel.innerHTML = ICONS.trash;
                     btnDel.onclick = (e) => {
                         e.stopPropagation();
-                        openConfirm("Hamesha ke liye delete karein?", `"${item.name}" Telegram aur Drive dono se permanently delete ho jayegi.`, "Delete Permanently", "btn-danger", () => deletePermanently(item));
+                        openConfirm("Delete Permanently?", `"${item.name}" will be permanently deleted from both Telegram and TeleCloud.`, "Delete Permanently", "btn-danger", () => deletePermanently(item));
                     };
 
                     actions.append(btnRes, btnDel);
@@ -1302,7 +1515,7 @@
             currentVisibleItems = items;
 
             if (items.length === 0) {
-                container.innerHTML = `<div class="empty-msg">${query ? "Koi matching file nahi mili" : "Ye folder khali hai"}</div>`;
+                container.innerHTML = `<div class="empty-msg">${query ? "No matching files found" : "This folder is empty"}</div>`;
                 return;
             }
 
@@ -1316,6 +1529,15 @@
                     isFolder ? openFolder(item.name) : handleFileClick(item);
                 });
 
+                // PC Hover preload: quietly warm up Telegram URL before click
+                if (!isFolder && isImageFile(item.name)) {
+                    card.addEventListener("mouseenter", () => {
+                        if (item.fileId && !urlCache[item.fileId]) {
+                            getTelegramDirectUrl(item.fileId);
+                        }
+                    }, { once: true });
+                }
+
                 const check = document.createElement("div");
                 check.className = "select-check";
                 check.innerText = isSelected ? "✓" : "";
@@ -1328,9 +1550,11 @@
                 thumb.innerHTML = isFolder ? ICONS.folder : getDefaultFileSvg(item.name);
 
                 if (!isFolder) {
+                    const hasDedicatedThumb = Boolean(item.thumbFileId);
                     const thumbId = item.thumbFileId || (isImageFile(item.name) ? item.fileId : "");
                     if (thumbId) {
                         thumb.dataset.thumbId = thumbId;
+                        thumb.dataset.isThumb = hasDedicatedThumb ? "1" : "0";
                         thumbObserver.observe(thumb);
                     }
                 }
@@ -1343,10 +1567,8 @@
                 info.querySelector(".item-sub").innerText = ext;
 
                 left.append(thumb, info);
-
                 card.append(check, left);
 
-                // Clean cards: only Download button on files (Delete & Rename via long-press)
                 if (!isFolder) {
                     const actions = document.createElement("div");
                     actions.className = "item-actions";
@@ -1371,7 +1593,7 @@
         }
 
         function openFolderModal() {
-            if (inTrash) return showStatus("Pehle Recycle Bin se bahar aayein.");
+            if (inTrash) return showStatus("Exit Recycle Bin to create a folder.");
             const inp = document.getElementById("newFolderInput");
             inp.value = "";
             document.getElementById("folderModal").classList.add("open");
@@ -1385,17 +1607,17 @@
             fileHistory.push({ type: "folder", name, path: currentPath });
             renderFiles();
             await syncToCloud();
-            showStatus("Folder ban gaya!");
+            showStatus("Folder created.");
         }
 
-        // --- Upload Manager & Queue (IndexedDB + Pause/Resume + Rate-Limit Safe) ---
+        // --- Upload Manager & Queue (IndexedDB + Pause/Resume + Smart Rate-Limit) ---
         function openUploadModal() {
             renderUploadQueue();
             document.getElementById("uploadModal").classList.add("open");
         }
 
         async function handleUploadSelection(files) {
-            if (inTrash) return showStatus("Pehle Recycle Bin se bahar aayein.");
+            if (inTrash) return showStatus("Exit Recycle Bin to upload files.");
             if (!files || files.length === 0) return;
 
             for (let i = 0; i < files.length; i++) {
@@ -1443,13 +1665,13 @@
                 if (task.status === "cancelled" || task.status === "paused") return;
 
                 let data = null;
-                for (let attempt = 0; attempt < 4; attempt++) {
+                for (let attempt = 0; attempt < 6; attempt++) {
                     if (task.status === "cancelled" || task.status === "paused") return;
                     const res = await uploadTaskWithXhr(task, thumbBlob);
                     if (res.status === 429 || (res.json && res.json.error_code === 429)) {
                         const waitSec = (res.json && res.json.parameters && res.json.parameters.retry_after) ? res.json.parameters.retry_after : 6;
                         task.status = "waiting";
-                        task.note = `Rate limit: ${waitSec}s ruk rahe hain...`;
+                        task.note = `Rate limit: retrying in ${waitSec}s...`;
                         renderUploadQueue();
                         await new Promise(r => setTimeout(r, (waitSec + 1) * 1000));
                         if (task.status === "cancelled" || task.status === "paused") return;
@@ -1470,6 +1692,9 @@
                     const doc = r.document || r.video || (r.photo ? r.photo[r.photo.length - 1] : null);
                     if (doc && doc.file_id) {
                         const thumbId = (doc.thumbnail && doc.thumbnail.file_id) || (doc.thumb && doc.thumb.file_id) || "";
+                        // Cache generated thumbnail locally right away
+                        if (thumbId && thumbBlob) saveThumbToCache(thumbId, thumbBlob);
+
                         fileHistory.push({
                             type: "file",
                             msgId: String(r.message_id),
@@ -1538,7 +1763,7 @@
             if (!task) return;
             task.status = "paused";
             task.note = "Paused";
-            if (task.xhr) { try { task.xhr.abort(); } catch(e) {} }
+            if (task.xhr) { try { task.xhr.abort(); } catch (e) {} }
             updateUploadFab();
             renderUploadQueue();
             processUploadQueue();
@@ -1572,7 +1797,7 @@
             const task = uploadTasks.find(t => t.id === id);
             if (!task) return;
             task.status = "cancelled";
-            if (task.xhr) { try { task.xhr.abort(); } catch(e) {} }
+            if (task.xhr) { try { task.xhr.abort(); } catch (e) {} }
             idbDeleteTask(id);
             uploadTasks = uploadTasks.filter(t => t.id !== id);
             updateUploadFab();
@@ -1623,7 +1848,7 @@
             if (resumeAllBtn) resumeAllBtn.style.display = hasPaused ? "inline-flex" : "none";
 
             if (uploadTasks.length === 0) {
-                body.innerHTML = `<div class="empty-msg" style="padding:24px;">Abhi koi upload nahi hai</div>`;
+                body.innerHTML = `<div class="empty-msg" style="padding:24px;">No active uploads</div>`;
                 return;
             }
 
@@ -1640,9 +1865,9 @@
                     let statusText = "Waiting in queue...";
                     let statusCls = "";
                     if (t.status === "uploading") { statusText = `Uploading... ${t.progress}%`; statusCls = "uploading"; }
-                    else if (t.status === "waiting") { statusText = t.note || "Waiting (Rate limit)..."; statusCls = "paused"; }
+                    else if (t.status === "waiting") { statusText = t.note || "Rate limit: waiting..."; statusCls = "paused"; }
                     else if (t.status === "paused") { statusText = t.note || "Paused"; statusCls = "paused"; }
-                    else if (t.status === "failed") { statusText = "Failed (Tap resume)"; statusCls = "failed"; }
+                    else if (t.status === "failed") { statusText = "Failed — tap to resume"; statusCls = "failed"; }
 
                     div.innerHTML = `
                         <div class="queue-top">
@@ -1717,14 +1942,14 @@
                     canvas.height = Math.round(img.height * scale);
                     const ctx = canvas.getContext("2d");
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    canvas.toBlob(blob => resolve(blob), "image/jpeg", 0.7);
+                    canvas.toBlob(blob => resolve(blob), "image/jpeg", 0.72);
                 };
                 img.onerror = () => { URL.revokeObjectURL(objUrl); resolve(null); };
                 img.src = objUrl;
             });
         }
 
-        // --- Media Viewer with Instant Blur-Up HD Loading, Zoom & Swipe ---
+        // --- Media Viewer with Instant Blur-Up HD, In-Memory Preload, Zoom & Swipe ---
         function handleFileClick(item) {
             if (isImageFile(item.name) || isVideoFile(item.name)) {
                 const idx = currentMediaList.findIndex(m => m === item || m.fileId === item.fileId);
@@ -1750,6 +1975,24 @@
             if (img) img.style.transform = `translate3d(${zX}px, ${zY}px, 0) scale(${zScale})`;
         }
 
+        async function preloadAdjacentImage(adjIdx) {
+            if (!isViewerOpen || adjIdx < 0 || adjIdx >= currentMediaList.length) return;
+            const adjItem = currentMediaList[adjIdx];
+            if (!adjItem || !isImageFile(adjItem.name) || viewerPreloadMap.has(adjItem.fileId)) return;
+
+            const url = await getTelegramDirectUrl(adjItem.fileId);
+            if (!url || !isViewerOpen) return;
+
+            // Keep preload map tiny (max 4 images in RAM)
+            if (viewerPreloadMap.size >= 4) {
+                const firstKey = viewerPreloadMap.keys().next().value;
+                viewerPreloadMap.delete(firstKey);
+            }
+            const preImg = new Image();
+            preImg.src = url;
+            viewerPreloadMap.set(adjItem.fileId, preImg);
+        }
+
         async function showMediaAtIndex(idx) {
             if (idx < 0 || idx >= currentMediaList.length) return;
             currentMediaIndex = idx;
@@ -1768,7 +2011,7 @@
 
             document.getElementById("viewerDownloadBtn").onclick = () => downloadSingleFileProperly(item);
             document.getElementById("viewerDeleteBtn").onclick = () => {
-                openConfirm("Bin mein bhejein?", `Kya aap "${item.name}" ko Recycle Bin mein move karna chahte hain?`, "Move to Bin", "btn-danger", async () => {
+                openConfirm("Move to Recycle Bin?", `Move "${item.name}" to the Recycle Bin?`, "Move to Bin", "btn-danger", async () => {
                     await moveToTrash(item);
                     if (currentMediaList.length === 0) {
                         closeViewer();
@@ -1780,9 +2023,8 @@
             };
 
             if (isImageFile(item.name)) {
-                hint.innerText = "Pinch ya double-tap se zoom karein • Swipe se next/prev";
+                hint.innerText = "Pinch or double-tap to zoom • Swipe to navigate";
 
-                // Step 1: Instantly show cached thumbnail with blur-up
                 const img = document.createElement("img");
                 img.id = "activeZoomImg";
                 img.draggable = false;
@@ -1791,26 +2033,28 @@
                 badge.className = "hd-badge";
                 badge.innerText = "Loading HD...";
 
+                // Step 1: Instantly show cached thumbnail (from IndexedDB or session URL cache)
                 const thumbId = item.thumbFileId;
-                const cachedThumbUrl = thumbId ? urlCache[thumbId] : null;
+                const localThumbUrl = thumbId ? (await getCachedThumbUrl(thumbId) || urlCache[thumbId]) : null;
+                if (!isViewerOpen || currentMediaIndex !== idx) return;
 
-                if (cachedThumbUrl) {
-                    img.src = cachedThumbUrl;
+                if (localThumbUrl) {
+                    img.src = localThumbUrl;
                     img.classList.add("blur-loading");
                     content.append(img, badge);
                 } else {
                     content.innerHTML = `<div style="color:#94a3b8;font-size:14px;">Loading...</div>`;
                 }
 
-                // Step 2: Load Full HD image in background
+                // Step 2: Load Full HD image
                 const fullUrl = await getTelegramDirectUrl(item.fileId);
                 if (!isViewerOpen || currentMediaIndex !== idx) return;
 
                 if (!fullUrl) {
-                    if (!cachedThumbUrl) {
-                        content.innerHTML = `<div style="color:#f87171;font-size:14px;padding:20px;text-align:center;">File 20MB se badi hai ya load nahi ho payi.</div>`;
+                    if (!localThumbUrl) {
+                        content.innerHTML = `<div style="color:#f87171;font-size:14px;padding:20px;text-align:center;">Unable to load image (20 MB Bot API limit).</div>`;
                     } else {
-                        badge.innerText = "HD unavailable (20MB+ limit)";
+                        badge.innerText = "HD unavailable (20 MB+ limit)";
                     }
                     return;
                 }
@@ -1825,22 +2069,21 @@
                     img.src = fullUrl;
                     img.classList.remove("blur-loading");
                     if (badge.parentNode) badge.remove();
+
+                    // Preload next & previous images in memory for instant swipe
+                    preloadAdjacentImage(idx + 1);
+                    preloadAdjacentImage(idx - 1);
                 };
                 hdLoader.onerror = () => {
                     if (badge.parentNode) badge.remove();
                 };
                 hdLoader.src = fullUrl;
-
-                // Preload next photo URL quietly
-                if (idx + 1 < currentMediaList.length && isImageFile(currentMediaList[idx + 1].name)) {
-                    getTelegramDirectUrl(currentMediaList[idx + 1].fileId);
-                }
             } else {
                 content.innerHTML = `<div style="color:#94a3b8;font-size:14px;">Loading video...</div>`;
                 const url = await getTelegramDirectUrl(item.fileId);
                 if (!isViewerOpen || currentMediaIndex !== idx) return;
                 if (!url) {
-                    content.innerHTML = `<div style="color:#f87171;font-size:14px;padding:20px;text-align:center;">Video 20MB se badi hai ya load nahi ho payi.</div>`;
+                    content.innerHTML = `<div style="color:#f87171;font-size:14px;padding:20px;text-align:center;">Unable to play video (20 MB Bot API limit).</div>`;
                     return;
                 }
                 content.innerHTML = "";
@@ -1850,7 +2093,7 @@
                 vid.autoplay = true;
                 vid.playsInline = true;
                 content.appendChild(vid);
-                hint.innerText = "Swipe se next/prev media dekhein";
+                hint.innerText = "Swipe left or right to switch media";
             }
         }
 
@@ -1867,6 +2110,7 @@
             isViewerOpen = false;
             document.getElementById("mediaViewer").classList.remove("open");
             document.getElementById("viewerContent").innerHTML = "";
+            viewerPreloadMap.clear(); // Free memory immediately on close
             resetZoom();
         }
 
@@ -1956,7 +2200,7 @@
                 trashHistory.push(item);
                 renderFiles();
                 await syncToCloud();
-                showStatus("Bin mein move kar diya!");
+                showStatus("Moved to Recycle Bin.");
             }
         }
 
@@ -1967,7 +2211,7 @@
                 fileHistory.push(item);
                 renderFiles();
                 await syncToCloud();
-                showStatus("Restore ho gaya!");
+                showStatus("Item restored.");
             }
         }
 
@@ -1979,7 +2223,7 @@
             trashHistory.splice(idx, 1);
             renderFiles();
             await syncToCloud();
-            showStatus("Permanently deleted!");
+            showStatus("Permanently deleted.");
         }
 
         if (licenseKey && botToken && chatId) openWorkspace();
