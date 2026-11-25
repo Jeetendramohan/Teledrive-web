@@ -1,4 +1,4 @@
-// TeleCloud Drive v8 - Streaming Download Service Worker
+// TeleCloud Drive v10.0 - Hybrid Streaming Download Service Worker
 const activeDownloads = new Map();
 
 self.addEventListener("install", () => {
@@ -38,20 +38,31 @@ self.addEventListener("fetch", (event) => {
     const stream = new ReadableStream({
         async start(controller) {
             try {
+                const workerBase = (meta.workerUrl || "").replace(/\/+$/, "");
+
                 for (let i = 0; i < meta.chunks.length; i++) {
                     const chunk = meta.chunks[i];
-                    const tgRes = await fetch(
-                        `https://api.telegram.org/bot${meta.botToken}/getFile?file_id=${encodeURIComponent(chunk.fileId)}`
-                    );
-                    const tgData = await tgRes.json();
-                    if (!tgData.ok || !tgData.result || !tgData.result.file_path) {
-                        throw new Error(`Chunk ${i + 1} unavailable`);
+                    let chunkRes;
+
+                    if (meta.authMode === "private") {
+                        const privateUrl = `${workerBase}/api/file?fileId=${encodeURIComponent(chunk.fileId)}&name=${encodeURIComponent(`part_${i + 1}`)}`;
+                        chunkRes = await fetch(privateUrl, {
+                            headers: { "X-App-Password": meta.appPassword || "" }
+                        });
+                    } else {
+                        const tgRes = await fetch(
+                            `https://api.telegram.org/bot${meta.botToken}/getFile?file_id=${encodeURIComponent(chunk.fileId)}`
+                        );
+                        const tgData = await tgRes.json();
+                        if (!tgData.ok || !tgData.result || !tgData.result.file_path) {
+                            throw new Error(`Chunk ${i + 1} unavailable`);
+                        }
+
+                        const tgFileUrl = `https://api.telegram.org/file/bot${meta.botToken}/${tgData.result.file_path}`;
+                        const workerFetchUrl = `${meta.workerUrl}?url=${encodeURIComponent(tgFileUrl)}&name=${encodeURIComponent(`part_${i + 1}`)}`;
+                        chunkRes = await fetch(workerFetchUrl);
                     }
 
-                    const tgFileUrl = `https://api.telegram.org/file/bot${meta.botToken}/${tgData.result.file_path}`;
-                    const workerFetchUrl = `${meta.workerUrl}?url=${encodeURIComponent(tgFileUrl)}&name=${encodeURIComponent(`part_${i + 1}`)}`;
-
-                    const chunkRes = await fetch(workerFetchUrl);
                     if (!chunkRes.ok || !chunkRes.body) {
                         throw new Error(`Failed to fetch chunk ${i + 1}`);
                     }
