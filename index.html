@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex, nofollow">
-    <title>TeleCloud Drive v8.2</title>
+    <title>TeleCloud Drive v8.3</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         :root {
@@ -92,11 +92,13 @@
         #workspace { display: none; max-width: 1180px; margin: 0 auto; }
 
         .topbar { height: 62px; background: var(--topbar-bg); backdrop-filter: blur(10px); padding: 0 16px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 20; border-bottom: 1px solid var(--border); }
-        .topbar-left { display: flex; align-items: center; gap: 10px; }
-        .topbar-logo { width: 34px; height: 34px; background: var(--primary); color: #fff; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+        .topbar-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .topbar-logo { width: 34px; height: 34px; background: var(--primary); color: #fff; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         [data-theme="dark"] .topbar-logo { color: #0b1120; }
-        .topbar h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
-        .top-actions { display: flex; gap: 6px; }
+        .topbar h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; white-space: nowrap; }
+        .storage-pill { font-size: 11.5px; font-weight: 700; color: var(--primary); background: var(--primary-soft); padding: 4px 9px; border-radius: 99px; white-space: nowrap; cursor: pointer; border: none; transition: 0.15s; }
+        .storage-pill:active { transform: scale(0.95); }
+        .top-actions { display: flex; gap: 6px; flex-shrink: 0; }
         .icon-btn { background: var(--surface-2); color: var(--text); border: 1px solid transparent; border-radius: 10px; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.15s; }
         .icon-btn:hover { border-color: var(--border); }
         .icon-btn:active { transform: scale(0.93); }
@@ -111,9 +113,9 @@
         #bottomActionBar { position: fixed; bottom: 14px; left: 12px; right: 12px; z-index: 60; display: none; justify-content: center; pointer-events: none; }
         #bottomActionBar.active { display: flex; animation: slideUpBar 0.18s ease-out; }
         @keyframes slideUpBar { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .bottom-bar-inner { pointer-events: auto; width: 100%; max-width: 480px; background: var(--topbar-bg); backdrop-filter: blur(16px); border: 1px solid var(--border); border-radius: 18px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-around; gap: 6px; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.22); }
+        .bottom-bar-inner { pointer-events: auto; width: 100%; max-width: 520px; background: var(--topbar-bg); backdrop-filter: blur(16px); border: 1px solid var(--border); border-radius: 18px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-around; gap: 4px; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.22); }
         [data-theme="dark"] .bottom-bar-inner { box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55); }
-        .b-action-btn { flex: 1; min-width: 62px; background: transparent; border: none; border-radius: 12px; padding: 8px 6px; color: var(--text); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11.5px; font-weight: 600; cursor: pointer; transition: 0.15s; }
+        .b-action-btn { flex: 1; min-width: 54px; background: transparent; border: none; border-radius: 12px; padding: 8px 4px; color: var(--text); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: 0.15s; }
         .b-action-btn:hover { background: var(--surface-2); }
         .b-action-btn:active { transform: scale(0.94); background: var(--primary-soft); }
         .b-action-btn.primary { color: var(--primary); }
@@ -239,7 +241,15 @@
         .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; flex-wrap: wrap; }
         .modal-list { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; flex: 1; }
 
-        .folder-opt { padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); font-size: 14px; font-weight: 500; text-align: left; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--text); transition: 0.15s; }
+        .sort-section-label { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin: 8px 0 4px; }
+        .sort-section-label:first-child { margin-top: 2px; }
+
+        .prop-list { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 12px; }
+        .prop-row { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+        .prop-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); }
+        .prop-value { font-size: 13.5px; font-weight: 600; color: var(--text); word-break: break-word; }
+
+        .folder-opt { padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); font-size: 13.5px; font-weight: 500; text-align: left; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--text); transition: 0.15s; }
         .folder-opt.active { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); font-weight: 700; }
         .folder-opt:active { background: var(--primary-soft); border-color: var(--primary); }
 
@@ -258,15 +268,17 @@
 
         #mediaViewer { position: fixed; inset: 0; background: #000; z-index: 200; display: none; flex-direction: column; user-select: none; }
         #mediaViewer.open { display: flex; }
-        .viewer-top { padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; color: #fff; gap: 10px; background: rgba(0,0,0,0.65); z-index: 5; }
+        .viewer-top { padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; color: #fff; gap: 8px; background: rgba(0,0,0,0.65); z-index: 5; }
         .viewer-title-wrap { flex: 1; overflow: hidden; }
         .viewer-title { font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .viewer-counter { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+        .viewer-top-btns { display: flex; gap: 8px; flex-shrink: 0; }
 
         .viewer-body { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; touch-action: none; }
-        .viewer-body img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center center; will-change: transform; transition: filter 0.25s ease; }
-        /* Instagram-style full-screen blurred preview while HD loads */
-        .viewer-body img.blur-loading { width: 100%; height: 100%; filter: blur(10px); }
+        .viewer-body img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center center; will-change: transform; transition: filter 0.18s ease; }
+        .viewer-body img.blur-loading { width: 100%; height: 100%; filter: blur(2px); }
+        .viewer-body img.zoomed { cursor: grab; }
+        .viewer-body img.zoomed.dragging { cursor: grabbing; }
         .viewer-body video { max-width: 100%; max-height: 100%; border-radius: 6px; object-fit: contain; }
 
         .hd-badge { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.82); color: #e2e8f0; padding: 5px 12px; border-radius: 99px; font-size: 11px; font-weight: 600; z-index: 12; pointer-events: none; backdrop-filter: blur(4px); }
@@ -315,6 +327,7 @@
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
                 </div>
                 <h1>TeleCloud</h1>
+                <button class="storage-pill" id="storageBadge" onclick="showStorageBreakdown()" title="Total Uploaded Storage">0 B</button>
             </div>
             <div class="top-actions">
                 <button class="icon-btn" id="btnTheme" onclick="toggleTheme()" title="Toggle Theme"></button>
@@ -409,10 +422,28 @@
 
     <div class="modal-backdrop" id="sortModal">
         <div class="modal-card">
-            <div class="modal-title">Sort Files & Folders</div>
+            <div class="modal-title">
+                <span>Sort Options</span>
+                <button class="mini-btn" onclick="closeModal('sortModal')">✕</button>
+            </div>
             <div class="modal-list" id="sortOptionsList"></div>
             <div class="modal-actions">
-                <button class="btn btn-soft" onclick="closeModal('sortModal')">Close</button>
+                <button class="btn btn-soft" onclick="closeModal('sortModal')">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="propertiesModal">
+        <div class="modal-card">
+            <div class="modal-title">
+                <span id="propModalTitle">Properties</span>
+                <button class="mini-btn" onclick="closeModal('propertiesModal')">✕</button>
+            </div>
+            <div class="modal-list">
+                <div class="prop-list" id="propListBody"></div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-soft" onclick="closeModal('propertiesModal')">Close</button>
             </div>
         </div>
     </div>
@@ -484,7 +515,12 @@
                 <div class="viewer-title" id="viewerTitle">File</div>
                 <div class="viewer-counter" id="viewerCounter"></div>
             </div>
-            <button class="icon-btn" style="background:rgba(255,255,255,0.15);color:#fff" onclick="closeViewer()">✕</button>
+            <div class="viewer-top-btns">
+                <button class="icon-btn" id="viewerInfoBtn" style="background:rgba(255,255,255,0.15);color:#fff" title="Properties">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                </button>
+                <button class="icon-btn" style="background:rgba(255,255,255,0.15);color:#fff" onclick="closeViewer()">✕</button>
+            </div>
         </div>
         <div class="viewer-body" id="viewerBody">
             <button class="nav-arrow nav-prev" id="btnPrevMedia" onclick="stepMedia(-1)">‹</button>
@@ -504,6 +540,7 @@
         const FIREBASE_URL = "https://teledrive300-default-rtdb.firebaseio.com/";
         const WORKER_URL = "https://teledrive-dl.mohanjeetendraom.workers.dev/";
         const CHUNK_SIZE = 19 * 1024 * 1024; // 19 MB per chunk
+        const MAX_ZOOM = 10;
 
         if ("scrollRestoration" in history) {
             history.scrollRestoration = "manual";
@@ -518,7 +555,10 @@
         let currentPath = "/";
         let inTrash = false;
         let isGrid = localStorage.getItem("td_grid") === "true";
-        let sortMode = localStorage.getItem("td_sort") || "newest";
+
+        const legacySort = localStorage.getItem("td_sort") || "newest";
+        let folderSortMode = localStorage.getItem("td_sort_folders") || legacySort;
+        let fileSortMode = localStorage.getItem("td_sort_files") || legacySort;
         let themeMode = localStorage.getItem("td_theme") || "light";
 
         const scrollPositions = {};
@@ -528,11 +568,25 @@
         }
 
         function formatBytes(bytes) {
-            if (!bytes || bytes <= 0) return "";
-            const units = ["B", "KB", "MB", "GB"];
+            if (!bytes || bytes <= 0) return "0 B";
+            const units = ["B", "KB", "MB", "GB", "TB"];
             let i = 0, val = bytes;
             while (val >= 1024 && i < units.length - 1) { val /= 1024; i++; }
-            return `${val.toFixed(i >= 2 ? 1 : 0)} ${units[i]}`;
+            return `${val.toFixed(i >= 2 ? 2 : 0)} ${units[i]}`;
+        }
+
+        function updateStorageBadge() {
+            const driveBytes = fileHistory.reduce((acc, it) => acc + (Number(it.size) || 0), 0);
+            const trashBytes = trashHistory.reduce((acc, it) => acc + (Number(it.size) || 0), 0);
+            const totalBytes = driveBytes + trashBytes;
+            const badge = document.getElementById("storageBadge");
+            if (badge) badge.innerText = formatBytes(totalBytes);
+        }
+
+        function showStorageBreakdown() {
+            const driveBytes = fileHistory.reduce((acc, it) => acc + (Number(it.size) || 0), 0);
+            const trashBytes = trashHistory.reduce((acc, it) => acc + (Number(it.size) || 0), 0);
+            showStatus(`Drive: ${formatBytes(driveBytes)} • Recycle Bin: ${formatBytes(trashBytes)}`);
         }
 
         function isDesktop() { return window.innerWidth >= 768; }
@@ -562,7 +616,7 @@
         let touchStartX = 0, touchStartY = 0;
         let panStartX = 0, panStartY = 0;
         let pinchStartDist = 0, pinchStartScale = 1;
-        let isPinching = false, isPanning = false;
+        let isPinching = false, isPanning = false, isMouseDragging = false;
         let gridPinchStartDist = 0, gridPinchActive = false;
 
         const urlCache = JSON.parse(sessionStorage.getItem("td_url_cache") || "{}");
@@ -584,7 +638,8 @@
             video: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><polygon points="10 9 15 12 10 15 10 9" fill="var(--primary)"/></svg>`,
             image: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`,
             pdf: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,
-            download: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
+            download: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
+            info: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`,
             trash: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
             rename: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`,
             scissors: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>`,
@@ -777,7 +832,7 @@
 
         history.replaceState({ view: "root" }, "");
         window.addEventListener("popstate", () => {
-            const modals = ["confirmModal", "folderModal", "renameModal", "moveModal", "dlChoiceModal", "uploadModal", "sortModal"];
+            const modals = ["confirmModal", "folderModal", "renameModal", "moveModal", "dlChoiceModal", "uploadModal", "sortModal", "propertiesModal"];
             for (const m of modals) {
                 if (document.getElementById(m).classList.contains("open")) { closeModal(m); return; }
             }
@@ -823,6 +878,58 @@
         function isImageFile(name = "") { return /\.(jpg|jpeg|png|webp|gif)$/i.test(name); }
         function isVideoFile(name = "") { return /\.(mp4|mkv|avi|mov|webm)$/i.test(name); }
         function isPdfFile(name = "") { return /\.pdf$/i.test(name); }
+
+        function openPropertiesModal(item) {
+            if (!item) return;
+            const isFolder = item.type === "folder";
+            document.getElementById("propModalTitle").innerText = isFolder ? "Folder Properties" : "File Properties";
+            const body = document.getElementById("propListBody");
+            body.innerHTML = "";
+
+            const rows = [];
+            rows.push({ label: "Name", value: item.name || "Untitled" });
+
+            if (isFolder) {
+                const folderPrefix = (item.path || "/") + item.name + "/";
+                const subFiles = fileHistory.filter(it => it.type !== "folder" && (it.path || "/").startsWith(folderPrefix));
+                const folderSize = subFiles.reduce((acc, it) => acc + (Number(it.size) || 0), 0);
+                rows.push({ label: "Type", value: "Folder" });
+                rows.push({ label: "Location", value: (item.path || "/") === "/" ? "Home /" : "Home" + item.path });
+                rows.push({ label: "Total Size", value: formatBytes(folderSize) });
+            } else {
+                const ext = (item.name && item.name.includes(".")) ? item.name.split(".").pop().toUpperCase() : "FILE";
+                let typeLabel = ext + " File";
+                if (isImageFile(item.name)) typeLabel = ext + " Image";
+                else if (isVideoFile(item.name)) typeLabel = ext + " Video";
+                else if (isPdfFile(item.name)) typeLabel = "PDF Document";
+
+                rows.push({ label: "Type", value: typeLabel });
+                rows.push({ label: "Size", value: item.size ? formatBytes(item.size) : "Unknown" });
+                rows.push({ label: "Location", value: (item.path || "/") === "/" ? "Home /" : "Home" + item.path });
+                rows.push({
+                    label: "Storage Format",
+                    value: (item.isChunked && Array.isArray(item.chunks)) ? `Chunked (${item.chunks.length} parts)` : "Single File"
+                });
+            }
+
+            if (item.uploadedAt) {
+                const dt = new Date(item.uploadedAt);
+                rows.push({ label: isFolder ? "Created" : "Uploaded", value: dt.toLocaleString() });
+            } else {
+                rows.push({ label: isFolder ? "Created" : "Uploaded", value: "N/A" });
+            }
+
+            rows.forEach(r => {
+                const div = document.createElement("div");
+                div.className = "prop-row";
+                div.innerHTML = `<div class="prop-label"></div><div class="prop-value"></div>`;
+                div.querySelector(".prop-label").innerText = r.label;
+                div.querySelector(".prop-value").innerText = r.value;
+                body.appendChild(div);
+            });
+
+            document.getElementById("propertiesModal").classList.add("open");
+        }
 
         async function getTelegramDirectUrl(fileId) {
             if (!fileId) return null;
@@ -936,12 +1043,13 @@
                 if (!fid) return;
                 loadThumbnailIntoElement(el, fid, isDedicatedThumb);
             });
-        }, { rootMargin: "180px" });
+        }, { rootMargin: "240px" });
 
         async function loadThumbnailIntoElement(el, fid, isDedicatedThumb) {
             const cachedUrl = await getCachedThumbUrl(fid);
             if (cachedUrl) {
                 const img = document.createElement("img");
+                img.decoding = "async";
                 img.src = cachedUrl;
                 img.alt = "";
                 el.innerHTML = "";
@@ -959,6 +1067,7 @@
                         const objUrl = URL.createObjectURL(blob);
                         thumbObjectUrls.set(fid, objUrl);
                         const img = document.createElement("img");
+                        img.decoding = "async";
                         img.src = objUrl;
                         img.alt = "";
                         el.innerHTML = "";
@@ -968,6 +1077,7 @@
                 } catch (e) {}
             }
             const img = document.createElement("img");
+            img.decoding = "async";
             img.src = tgUrl;
             img.alt = "";
             img.onload = () => { el.innerHTML = ""; el.appendChild(img); };
@@ -1052,34 +1162,59 @@
         ];
 
         function updateSortLabel() {
-            const found = SORT_OPTIONS.find(o => o.id === sortMode) || SORT_OPTIONS[0];
-            document.getElementById("sortBtnLabel").innerText = found.short;
+            const fFound = SORT_OPTIONS.find(o => o.id === fileSortMode) || SORT_OPTIONS[0];
+            document.getElementById("sortBtnLabel").innerText = fFound.short;
         }
 
         function openSortModal() {
             const list = document.getElementById("sortOptionsList");
             list.innerHTML = "";
+
+            const folderTitle = document.createElement("div");
+            folderTitle.className = "sort-section-label";
+            folderTitle.innerText = "Folders Sort";
+            list.appendChild(folderTitle);
+
             SORT_OPTIONS.forEach(opt => {
                 const btn = document.createElement("button");
-                btn.className = "folder-opt" + (sortMode === opt.id ? " active" : "");
-                btn.innerHTML = `<span>${opt.label}</span>${sortMode === opt.id ? "<span>✓</span>" : ""}`;
+                btn.className = "folder-opt" + (folderSortMode === opt.id ? " active" : "");
+                btn.innerHTML = `<span>${opt.label}</span>${folderSortMode === opt.id ? "<span>✓</span>" : ""}`;
                 btn.onclick = () => {
-                    sortMode = opt.id;
-                    localStorage.setItem("td_sort", sortMode);
-                    updateSortLabel();
-                    closeModal("sortModal");
+                    folderSortMode = opt.id;
+                    localStorage.setItem("td_sort_folders", folderSortMode);
                     renderFiles();
+                    openSortModal();
                 };
                 list.appendChild(btn);
             });
+
+            const fileTitle = document.createElement("div");
+            fileTitle.className = "sort-section-label";
+            fileTitle.innerText = "Files Sort";
+            list.appendChild(fileTitle);
+
+            SORT_OPTIONS.forEach(opt => {
+                const btn = document.createElement("button");
+                btn.className = "folder-opt" + (fileSortMode === opt.id ? " active" : "");
+                btn.innerHTML = `<span>${opt.label}</span>${fileSortMode === opt.id ? "<span>✓</span>" : ""}`;
+                btn.onclick = () => {
+                    fileSortMode = opt.id;
+                    localStorage.setItem("td_sort_files", fileSortMode);
+                    updateSortLabel();
+                    renderFiles();
+                    openSortModal();
+                };
+                list.appendChild(btn);
+            });
+
             document.getElementById("sortModal").classList.add("open");
         }
 
-        function applySortToList(arr, sourceArray) {
+        function applySortToList(arr, sourceArray, mode) {
             const list = arr.slice();
-            if (sortMode === "name_asc") list.sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { numeric: true, sensitivity: "base" }));
-            else if (sortMode === "name_desc") list.sort((a, b) => (b.name || "").localeCompare(a.name || "", undefined, { numeric: true, sensitivity: "base" }));
-            else if (sortMode === "oldest") list.sort((a, b) => sourceArray.indexOf(a) - sourceArray.indexOf(b));
+            if (mode === "name_asc") list.sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { numeric: true, sensitivity: "base" }));
+            else if (mode === "name_desc") list.sort((a, b) => (b.name || "").localeCompare(a.name || "", undefined, { numeric: true, sensitivity: "base" }));
+            else if (mode === "oldest") list.sort((a, b) => sourceArray.indexOf(a) - sourceArray.indexOf(b));
             else list.sort((a, b) => sourceArray.indexOf(b) - sourceArray.indexOf(a));
             return list;
         }
@@ -1258,6 +1393,7 @@
             } else {
                 if (selectedItems.size === 1) {
                     const onlyItem = [...selectedItems][0];
+                    wrap.appendChild(mkBtn(ICONS.info, "Info", "", () => openPropertiesModal(onlyItem)));
                     wrap.appendChild(mkBtn(ICONS.rename, "Rename", "", () => openRenameModal(onlyItem)));
                 }
                 wrap.appendChild(mkBtn(ICONS.download, "Download", "primary", openBatchDownloadModal));
@@ -1570,6 +1706,7 @@
         }
 
         function renderFiles() {
+            updateStorageBadge();
             const container = document.getElementById("fileContainer");
             const pathDisplay = document.getElementById("pathDisplay");
             const btnBack = document.getElementById("btnBack");
@@ -1581,7 +1718,7 @@
                 pathDisplay.innerText = "Recycle Bin (Hover/Ctrl+Click or long-press to select)";
                 btnBack.style.display = "none";
                 const rawList = trashHistory.filter(i => !query || (i.name || "").toLowerCase().includes(query));
-                const list = applySortToList(rawList, trashHistory);
+                const list = applySortToList(rawList, trashHistory, fileSortMode);
                 currentVisibleItems = list;
 
                 if (list.length === 0) {
@@ -1653,8 +1790,8 @@
                 .filter(i => (i.path || "/") === currentPath && i.type !== "folder")
                 .filter(i => !query || (i.name || "").toLowerCase().includes(query));
 
-            const folders = applySortToList(rawFolders, fileHistory);
-            const files = applySortToList(rawFiles, fileHistory);
+            const folders = applySortToList(rawFolders, fileHistory, folderSortMode);
+            const files = applySortToList(rawFiles, fileHistory, fileSortMode);
 
             currentMediaList = files.filter(f => !f.isChunked && (isImageFile(f.name) || isVideoFile(f.name)));
             const items = [...folders, ...files];
@@ -1717,12 +1854,20 @@
                 if (!isFolder) {
                     const actions = document.createElement("div");
                     actions.className = "item-actions";
+
+                    const btnInfo = document.createElement("button");
+                    btnInfo.className = "mini-btn";
+                    btnInfo.title = "Properties";
+                    btnInfo.innerHTML = ICONS.info;
+                    btnInfo.onclick = (e) => { e.stopPropagation(); openPropertiesModal(item); };
+
                     const btnDl = document.createElement("button");
                     btnDl.className = "mini-btn";
                     btnDl.title = "Download";
                     btnDl.innerHTML = ICONS.download;
                     btnDl.onclick = (e) => { e.stopPropagation(); downloadSingleFileProperly(item); };
-                    actions.appendChild(btnDl);
+
+                    actions.append(btnInfo, btnDl);
                     card.appendChild(actions);
                 }
 
@@ -1751,7 +1896,7 @@
             const name = document.getElementById("newFolderInput").value.trim().replace(/\//g, "");
             if (!name) return;
             closeModal("folderModal");
-            fileHistory.push({ type: "folder", name, path: currentPath });
+            fileHistory.push({ type: "folder", name, path: currentPath, uploadedAt: Date.now() });
             renderFiles();
             await syncToCloud();
             showStatus("Folder created.");
@@ -1882,7 +2027,8 @@
                                 name: task.name,
                                 size: task.file.size,
                                 path: task.targetPath,
-                                thumbFileId: thumbId
+                                thumbFileId: thumbId,
+                                uploadedAt: Date.now()
                             });
                             task.status = "done";
                             task.progress = 100;
@@ -1959,7 +2105,8 @@
                         size: task.file.size,
                         path: task.targetPath,
                         thumbFileId: task.thumbFileId || "",
-                        chunks: task.uploadedChunks
+                        chunks: task.uploadedChunks,
+                        uploadedAt: Date.now()
                     });
                     task.status = "done";
                     task.progress = 100;
@@ -2235,7 +2382,10 @@
         function resetZoom() { zScale = 1; zX = 0; zY = 0; applyZoomTransform(); }
         function applyZoomTransform() {
             const img = document.getElementById("activeZoomImg");
-            if (img) img.style.transform = `translate3d(${zX}px, ${zY}px, 0) scale(${zScale})`;
+            if (img) {
+                img.style.transform = `translate3d(${zX}px, ${zY}px, 0) scale(${zScale})`;
+                img.classList.toggle("zoomed", zScale > 1.05);
+            }
         }
 
         async function preloadAdjacentImage(adjIdx) {
@@ -2244,8 +2394,9 @@
             if (!adjItem || !isImageFile(adjItem.name) || viewerPreloadMap.has(adjItem.fileId)) return;
             const url = await getTelegramDirectUrl(adjItem.fileId);
             if (!url || !isViewerOpen) return;
-            if (viewerPreloadMap.size >= 4) viewerPreloadMap.delete(viewerPreloadMap.keys().next().value);
+            if (viewerPreloadMap.size >= 6) viewerPreloadMap.delete(viewerPreloadMap.keys().next().value);
             const preImg = new Image();
+            preImg.decoding = "async";
             preImg.src = url;
             viewerPreloadMap.set(adjItem.fileId, preImg);
         }
@@ -2260,6 +2411,7 @@
             document.getElementById("viewerCounter").innerText = `${idx + 1} / ${currentMediaList.length}`;
             document.getElementById("btnPrevMedia").classList.toggle("hidden", idx === 0);
             document.getElementById("btnNextMedia").classList.toggle("hidden", idx === currentMediaList.length - 1);
+            document.getElementById("viewerInfoBtn").onclick = () => openPropertiesModal(item);
 
             const content = document.getElementById("viewerContent");
             const hint = document.getElementById("viewerHint");
@@ -2276,10 +2428,24 @@
             };
 
             if (isImageFile(item.name)) {
-                hint.innerText = "Pinch or double-tap to zoom • Swipe to navigate";
+                hint.innerText = isDesktop()
+                    ? "Scroll to zoom (up to 10x) • Drag to pan • Arrow keys to navigate"
+                    : "Pinch or double-tap to zoom (up to 10x) • Swipe to navigate";
+
                 const img = document.createElement("img");
                 img.id = "activeZoomImg";
                 img.draggable = false;
+                img.decoding = "async";
+
+                // Instant HD render if already preloaded
+                const preloaded = viewerPreloadMap.get(item.fileId);
+                if (preloaded && preloaded.complete && preloaded.naturalWidth > 0) {
+                    img.src = preloaded.src;
+                    content.appendChild(img);
+                    preloadAdjacentImage(idx + 1);
+                    preloadAdjacentImage(idx - 1);
+                    return;
+                }
 
                 const badge = document.createElement("div");
                 badge.className = "hd-badge";
@@ -2307,12 +2473,14 @@
                 }
 
                 const hdLoader = new Image();
+                hdLoader.decoding = "async";
                 hdLoader.onload = () => {
                     if (!isViewerOpen || currentMediaIndex !== idx) return;
                     if (!content.contains(img)) { content.innerHTML = ""; content.appendChild(img); }
                     img.src = fullUrl;
                     img.classList.remove("blur-loading");
                     if (badge.parentNode) badge.remove();
+                    viewerPreloadMap.set(item.fileId, hdLoader);
                     preloadAdjacentImage(idx + 1);
                     preloadAdjacentImage(idx - 1);
                 };
@@ -2366,7 +2534,7 @@
                 const now = Date.now();
                 if (img && now - lastTapTime < 280) {
                     if (zScale > 1.1) resetZoom();
-                    else { zScale = 2.5; zX = 0; zY = 0; applyZoomTransform(); }
+                    else { zScale = 3; zX = 0; zY = 0; applyZoomTransform(); }
                     lastTapTime = 0;
                     return;
                 }
@@ -2387,7 +2555,7 @@
             if (!img) return;
             if (isPinching && e.touches.length === 2) {
                 const dist = getTouchDist(e.touches[0], e.touches[1]);
-                zScale = Math.min(Math.max(pinchStartScale * (dist / pinchStartDist), 1), 4);
+                zScale = Math.min(Math.max(pinchStartScale * (dist / pinchStartDist), 1), MAX_ZOOM);
                 if (zScale <= 1.02) { zX = 0; zY = 0; }
                 applyZoomTransform();
             } else if (isPanning && e.touches.length === 1 && zScale > 1.05) {
@@ -2410,6 +2578,40 @@
             }
         }, { passive: true });
 
+        // Desktop Mouse Wheel Zoom & Drag Pan
+        viewerBody.addEventListener("wheel", (e) => {
+            const img = document.getElementById("activeZoomImg");
+            if (!isViewerOpen || !img) return;
+            e.preventDefault();
+            const factor = e.deltaY < 0 ? 1.2 : 0.82;
+            zScale = Math.min(Math.max(zScale * factor, 1), MAX_ZOOM);
+            if (zScale <= 1.02) { zScale = 1; zX = 0; zY = 0; }
+            applyZoomTransform();
+        }, { passive: false });
+
+        viewerBody.addEventListener("mousedown", (e) => {
+            const img = document.getElementById("activeZoomImg");
+            if (!isViewerOpen || !img || zScale <= 1.05 || e.target.closest(".nav-arrow")) return;
+            isMouseDragging = true;
+            panStartX = e.clientX - zX;
+            panStartY = e.clientY - zY;
+            img.classList.add("dragging");
+        });
+
+        window.addEventListener("mousemove", (e) => {
+            if (!isMouseDragging) return;
+            zX = e.clientX - panStartX;
+            zY = e.clientY - panStartY;
+            applyZoomTransform();
+        });
+
+        window.addEventListener("mouseup", () => {
+            if (!isMouseDragging) return;
+            isMouseDragging = false;
+            const img = document.getElementById("activeZoomImg");
+            if (img) img.classList.remove("dragging");
+        });
+
         window.addEventListener("keydown", (e) => {
             if (!isViewerOpen) return;
             if (e.key === "ArrowRight") stepMedia(1);
@@ -2429,7 +2631,7 @@
         }
 
         async function restoreItem(item) {
-            const idx = trashHistory.findIndex(x => x === item || JSON.stringify(x) === JSON.stringify(item));
+            const idx = trashHistory.indexOf(item);
             if (idx !== -1) {
                 trashHistory.splice(idx, 1);
                 fileHistory.push(item);
@@ -2440,7 +2642,7 @@
         }
 
         async function deletePermanently(item) {
-            const idx = trashHistory.findIndex(x => x === item || JSON.stringify(x) === JSON.stringify(item));
+            const idx = trashHistory.indexOf(item);
             if (idx === -1) return;
             showStatus("Deleting permanently...", false);
             await deleteItemFromTelegram(item);
@@ -2454,3 +2656,4 @@
     </script>
 </body>
 </html>
+
