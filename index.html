@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex, nofollow">
-    <title>TeleCloud Drive v8.3</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <title>TeleCloud Drive v8.4</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <style>
         :root {
             --bg: #f8fafc;
@@ -241,6 +241,9 @@
         .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; flex-wrap: wrap; }
         .modal-list { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; flex: 1; }
 
+        .dup-check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin: 4px 0 12px; cursor: pointer; user-select: none; }
+        .dup-check-row input { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
+
         .sort-section-label { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin: 8px 0 4px; }
         .sort-section-label:first-child { margin-top: 2px; }
 
@@ -420,6 +423,25 @@
         </div>
     </div>
 
+    <div class="modal-backdrop" id="dupUploadModal">
+        <div class="modal-card">
+            <div class="modal-title">
+                <span>File Already Exists</span>
+                <button class="mini-btn" onclick="resolveDupChoice('skip')">✕</button>
+            </div>
+            <div class="modal-desc" id="dupUploadDesc">A file with this name already exists in this folder.</div>
+            <label class="dup-check-row" id="dupApplyAllWrap" style="display:none;">
+                <input type="checkbox" id="dupApplyAllChk">
+                <span>Apply to all remaining duplicates</span>
+            </label>
+            <div class="modal-list">
+                <button class="btn btn-danger btn-full" onclick="resolveDupChoice('replace')">Replace Existing File</button>
+                <button class="btn btn-primary btn-full" onclick="resolveDupChoice('rename')">Rename & Upload (Keep Both)</button>
+                <button class="btn btn-soft btn-full" onclick="resolveDupChoice('skip')">Don't Upload</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-backdrop" id="sortModal">
         <div class="modal-card">
             <div class="modal-title">
@@ -541,6 +563,7 @@
         const WORKER_URL = "https://teledrive-dl.mohanjeetendraom.workers.dev/";
         const CHUNK_SIZE = 19 * 1024 * 1024; // 19 MB per chunk
         const MAX_ZOOM = 10;
+        const URL_CACHE_TTL_MS = 50 * 60 * 1000; // 50 minutes
 
         if ("scrollRestoration" in history) {
             history.scrollRestoration = "manual";
@@ -555,6 +578,7 @@
         let currentPath = "/";
         let inTrash = false;
         let isGrid = localStorage.getItem("td_grid") === "true";
+        let isSyncing = false;
 
         const legacySort = localStorage.getItem("td_sort") || "newest";
         let folderSortMode = localStorage.getItem("td_sort_folders") || legacySort;
@@ -600,6 +624,7 @@
         let selectedItems = new Set();
         let currentVisibleItems = [];
         let itemToRename = null;
+        let dupChoiceResolver = null;
 
         let uploadTasks = [];
         let activeUploadCount = 0;
@@ -621,6 +646,16 @@
 
         const urlCache = JSON.parse(sessionStorage.getItem("td_url_cache") || "{}");
         const thumbObjectUrls = new Map();
+
+        function getFreshCachedUrl(fileId) {
+            const entry = urlCache[fileId];
+            if (!entry || typeof entry !== "object" || !entry.url || !entry.ts) return null;
+            if (Date.now() - entry.ts > URL_CACHE_TTL_MS) {
+                delete urlCache[fileId];
+                return null;
+            }
+            return entry.url;
+        }
 
         function saveUrlCache() {
             try { sessionStorage.setItem("td_url_cache", JSON.stringify(urlCache)); } catch (e) {}
@@ -688,7 +723,8 @@
                     targetPath: task.targetPath,
                     file: task.file,
                     uploadedChunks: task.uploadedChunks || [],
-                    thumbFileId: task.thumbFileId || ""
+                    thumbFileId: task.thumbFileId || "",
+                    replaceExisting: Boolean(task.replaceExisting)
                 });
             } catch (e) {}
         }
@@ -718,6 +754,7 @@
                                     targetPath: s.targetPath || "/",
                                     uploadedChunks: s.uploadedChunks || [],
                                     thumbFileId: s.thumbFileId || "",
+                                    replaceExisting: Boolean(s.replaceExisting),
                                     status: "paused",
                                     progress: 0,
                                     note: "Paused after reload",
@@ -819,7 +856,7 @@
         });
 
         window.addEventListener("beforeunload", (e) => {
-            if (uploadTasks.some(t => t.status === "uploading" || t.status === "queued")) {
+            if (isSyncing || uploadTasks.some(t => t.status === "uploading" || t.status === "queued")) {
                 e.preventDefault();
                 e.returnValue = "";
             }
@@ -832,6 +869,10 @@
 
         history.replaceState({ view: "root" }, "");
         window.addEventListener("popstate", () => {
+            if (document.getElementById("dupUploadModal").classList.contains("open")) {
+                resolveDupChoice("skip");
+                return;
+            }
             const modals = ["confirmModal", "folderModal", "renameModal", "moveModal", "dlChoiceModal", "uploadModal", "sortModal", "propertiesModal"];
             for (const m of modals) {
                 if (document.getElementById(m).classList.contains("open")) { closeModal(m); return; }
@@ -878,6 +919,19 @@
         function isImageFile(name = "") { return /\.(jpg|jpeg|png|webp|gif)$/i.test(name); }
         function isVideoFile(name = "") { return /\.(mp4|mkv|avi|mov|webm)$/i.test(name); }
         function isPdfFile(name = "") { return /\.pdf$/i.test(name); }
+
+        function snapshotState() {
+            return {
+                files: JSON.parse(JSON.stringify(fileHistory)),
+                trash: JSON.parse(JSON.stringify(trashHistory))
+            };
+        }
+
+        function restoreSnapshot(snap) {
+            fileHistory = snap.files;
+            trashHistory = snap.trash;
+            renderFiles();
+        }
 
         function openPropertiesModal(item) {
             if (!item) return;
@@ -933,13 +987,14 @@
 
         async function getTelegramDirectUrl(fileId) {
             if (!fileId) return null;
-            if (urlCache[fileId]) return urlCache[fileId];
+            const cached = getFreshCachedUrl(fileId);
+            if (cached) return cached;
             try {
                 const res = await fetch(`https://api.telegram.org/bot${botToken}/getFile?file_id=${encodeURIComponent(fileId)}`);
                 const data = await res.json();
                 if (data.ok && data.result && data.result.file_path) {
                     const url = `https://api.telegram.org/file/bot${botToken}/${data.result.file_path}`;
-                    urlCache[fileId] = url;
+                    urlCache[fileId] = { url, ts: Date.now() };
                     saveUrlCache();
                     return url;
                 }
@@ -1132,6 +1187,7 @@
             showStatus("Syncing...", false);
             try {
                 const res = await fetch(`${FIREBASE_URL}users/${encodeURIComponent(licenseKey)}/channels/${encodeURIComponent(chatId)}.json`);
+                if (!res.ok) throw new Error("HTTP " + res.status);
                 const data = await res.json();
                 fileHistory = (data && Array.isArray(data.fileHistory)) ? data.fileHistory : [];
                 trashHistory = (data && Array.isArray(data.trashHistory)) ? data.trashHistory : [];
@@ -1143,14 +1199,20 @@
         }
 
         async function syncToCloud() {
+            isSyncing = true;
             try {
-                await fetch(`${FIREBASE_URL}users/${encodeURIComponent(licenseKey)}/channels/${encodeURIComponent(chatId)}.json`, {
+                const res = await fetch(`${FIREBASE_URL}users/${encodeURIComponent(licenseKey)}/channels/${encodeURIComponent(chatId)}.json`, {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ fileHistory, trashHistory })
                 });
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                return true;
             } catch (e) {
-                showStatus("Cloud sync failed.");
+                showStatus("Cloud sync failed! Please check your connection.");
+                return false;
+            } finally {
+                isSyncing = false;
             }
         }
 
@@ -1308,8 +1370,16 @@
             const newName = document.getElementById("renameItemInput").value.trim().replace(/\//g, "");
             if (!newName || newName === itemToRename.name) { closeModal("renameModal"); return; }
 
+            const basePath = itemToRename.path || "/";
             if (itemToRename.type === "folder") {
-                const basePath = itemToRename.path || "/";
+                const dupFolder = fileHistory.some(
+                    it => it !== itemToRename && it.type === "folder" && (it.path || "/") === basePath && (it.name || "").toLowerCase() === newName.toLowerCase()
+                );
+                if (dupFolder) return showStatus("A folder with this name already exists.");
+            }
+
+            const snap = snapshotState();
+            if (itemToRename.type === "folder") {
                 const oldPrefix = basePath + itemToRename.name + "/";
                 const newPrefix = basePath + newName + "/";
                 itemToRename.name = newName;
@@ -1323,9 +1393,11 @@
             closeModal("renameModal");
             itemToRename = null;
             if (isMultiSelect) exitMultiSelect();
+            showStatus("Renaming & syncing...", false);
             renderFiles();
-            await syncToCloud();
-            showStatus("Renamed successfully.");
+            const ok = await syncToCloud();
+            if (ok) showStatus("Renamed successfully.");
+            else restoreSnapshot(snap);
         }
 
         function updateSelectionVisuals() {
@@ -1564,45 +1636,84 @@
 
         async function executeBatchMove(targetPath) {
             closeModal("moveModal");
+            const snap = snapshotState();
+            const toMove = [...selectedItems];
             let movedCount = 0;
-            selectedItems.forEach(item => {
-                if (item.type === "folder" && targetPath.startsWith((item.path || "/") + item.name + "/")) return;
-                item.path = targetPath;
-                movedCount++;
+
+            toMove.forEach(item => {
+                if (item.type === "folder") {
+                    const oldPrefix = (item.path || "/") + item.name + "/";
+                    if (targetPath.startsWith(oldPrefix)) return;
+                    const newPrefix = targetPath + item.name + "/";
+                    item.path = targetPath;
+                    fileHistory.forEach(child => {
+                        if (child !== item && child.path && child.path.startsWith(oldPrefix)) {
+                            child.path = newPrefix + child.path.slice(oldPrefix.length);
+                        }
+                    });
+                    movedCount++;
+                } else {
+                    item.path = targetPath;
+                    movedCount++;
+                }
             });
+
             exitMultiSelect();
+            showStatus("Moving & syncing...", false);
             renderFiles();
-            await syncToCloud();
-            showStatus(`Moved ${movedCount} item(s).`);
+            const ok = await syncToCloud();
+            if (ok) showStatus(`Moved ${movedCount} item(s).`);
+            else restoreSnapshot(snap);
+        }
+
+        function collectWithNested(itemsToCollect, sourceArr) {
+            const set = new Set();
+            itemsToCollect.forEach(item => {
+                set.add(item);
+                if (item.type === "folder") {
+                    const prefix = (item.path || "/") + item.name + "/";
+                    sourceArr.forEach(child => {
+                        if (child.path && child.path.startsWith(prefix)) set.add(child);
+                    });
+                }
+            });
+            return [...set];
         }
 
         function confirmBatchDelete() {
             const count = selectedItems.size;
             if (count === 0) return;
             openConfirm("Move to Recycle Bin?", `Move ${count} selected item(s) to the Recycle Bin?`, "Move to Bin", "btn-danger", async () => {
-                const toMove = [...selectedItems];
-                toMove.forEach(item => {
+                const snap = snapshotState();
+                const allToMove = collectWithNested([...selectedItems], fileHistory);
+                allToMove.forEach(item => {
                     const idx = fileHistory.indexOf(item);
                     if (idx !== -1) { fileHistory.splice(idx, 1); trashHistory.push(item); }
                 });
                 exitMultiSelect();
+                showStatus("Moving to Recycle Bin...", false);
                 renderFiles();
-                await syncToCloud();
-                showStatus(`Moved ${toMove.length} item(s) to Recycle Bin.`);
+                const ok = await syncToCloud();
+                if (ok) showStatus(`Moved ${count} item(s) to Recycle Bin.`);
+                else restoreSnapshot(snap);
             });
         }
 
         async function executeBatchRestore() {
-            const toRestore = [...selectedItems];
-            if (toRestore.length === 0) return;
-            toRestore.forEach(item => {
+            const count = selectedItems.size;
+            if (count === 0) return;
+            const snap = snapshotState();
+            const allToRestore = collectWithNested([...selectedItems], trashHistory);
+            allToRestore.forEach(item => {
                 const idx = trashHistory.indexOf(item);
                 if (idx !== -1) { trashHistory.splice(idx, 1); fileHistory.push(item); }
             });
             exitMultiSelect();
+            showStatus("Restoring & syncing...", false);
             renderFiles();
-            await syncToCloud();
-            showStatus(`Restored ${toRestore.length} item(s).`);
+            const ok = await syncToCloud();
+            if (ok) showStatus(`Restored ${count} item(s).`);
+            else restoreSnapshot(snap);
         }
 
         async function deleteTelegramMessageSafe(msgId) {
@@ -1639,7 +1750,7 @@
             const count = selectedItems.size;
             if (count === 0) return;
             openConfirm("Delete Permanently?", `${count} selected item(s) will be permanently deleted from both Telegram and TeleCloud.`, "Delete Permanently", "btn-danger", async () => {
-                const toDelete = [...selectedItems];
+                const toDelete = collectWithNested([...selectedItems], trashHistory);
                 exitMultiSelect();
                 for (let i = 0; i < toDelete.length; i++) {
                     const item = toDelete[i];
@@ -1650,8 +1761,8 @@
                     if (idx !== -1) trashHistory.splice(idx, 1);
                 }
                 renderFiles();
-                await syncToCloud();
-                showStatus(`Permanently deleted ${toDelete.length} item(s).`);
+                const ok = await syncToCloud();
+                if (ok) showStatus(`Permanently deleted ${count} item(s).`);
             });
         }
 
@@ -1819,7 +1930,7 @@
 
                 if (!isFolder && !item.isChunked && isImageFile(item.name)) {
                     card.addEventListener("mouseenter", () => {
-                        if (item.fileId && !urlCache[item.fileId]) getTelegramDirectUrl(item.fileId);
+                        if (item.fileId && !getFreshCachedUrl(item.fileId)) getTelegramDirectUrl(item.fileId);
                     }, { once: true });
                 }
 
@@ -1895,11 +2006,56 @@
         async function confirmCreateFolder() {
             const name = document.getElementById("newFolderInput").value.trim().replace(/\//g, "");
             if (!name) return;
+
+            const exists = fileHistory.some(
+                it => it.type === "folder" && (it.path || "/") === currentPath && (it.name || "").toLowerCase() === name.toLowerCase()
+            );
+            if (exists) return showStatus("A folder with this name already exists.");
+
             closeModal("folderModal");
+            const snap = snapshotState();
             fileHistory.push({ type: "folder", name, path: currentPath, uploadedAt: Date.now() });
+            showStatus("Creating folder...", false);
             renderFiles();
-            await syncToCloud();
-            showStatus("Folder created.");
+            const ok = await syncToCloud();
+            if (ok) showStatus("Folder created.");
+            else restoreSnapshot(snap);
+        }
+
+        // --- Duplicate Upload Handling ---
+        function getUniqueFileName(originalName, existingLowerSet) {
+            const dotIdx = originalName.lastIndexOf(".");
+            const base = dotIdx > 0 ? originalName.slice(0, dotIdx) : originalName;
+            const ext = dotIdx > 0 ? originalName.slice(dotIdx) : "";
+            let counter = 1;
+            let candidate = `${base} (${counter})${ext}`;
+            while (existingLowerSet.has(candidate.toLowerCase())) {
+                counter++;
+                candidate = `${base} (${counter})${ext}`;
+            }
+            return candidate;
+        }
+
+        function askDuplicateAction(fileName, showApplyAll) {
+            return new Promise((resolve) => {
+                dupChoiceResolver = resolve;
+                document.getElementById("dupUploadDesc").innerText = `"${fileName}" already exists in this folder. What would you like to do?`;
+                const chkWrap = document.getElementById("dupApplyAllWrap");
+                const chk = document.getElementById("dupApplyAllChk");
+                chk.checked = false;
+                chkWrap.style.display = showApplyAll ? "flex" : "none";
+                document.getElementById("dupUploadModal").classList.add("open");
+            });
+        }
+
+        function resolveDupChoice(action) {
+            closeModal("dupUploadModal");
+            if (dupChoiceResolver) {
+                const applyAll = document.getElementById("dupApplyAllChk").checked;
+                const res = dupChoiceResolver;
+                dupChoiceResolver = null;
+                res({ action, applyAll });
+            }
         }
 
         // --- Upload Manager (Single + Unlimited 19 MB Chunked Upload + Video/Image Thumbnails) ---
@@ -1912,14 +2068,52 @@
             if (inTrash) return showStatus("Exit Recycle Bin to upload files.");
             if (!files || files.length === 0) return;
 
-            for (let i = 0; i < files.length; i++) {
+            const selectedArr = Array.from(files);
+            document.getElementById("fileInput").value = "";
+
+            const existingLowerSet = new Set();
+            fileHistory.forEach(it => {
+                if (it.type !== "folder" && (it.path || "/") === currentPath && it.name) {
+                    existingLowerSet.add(it.name.toLowerCase());
+                }
+            });
+            uploadTasks.forEach(t => {
+                if (t.status !== "done" && t.status !== "cancelled" && t.targetPath === currentPath && t.name) {
+                    existingLowerSet.add(t.name.toLowerCase());
+                }
+            });
+
+            const dupTotal = selectedArr.filter(f => existingLowerSet.has(f.name.toLowerCase())).length;
+            let applyAllAction = null;
+            let addedCount = 0;
+
+            for (let i = 0; i < selectedArr.length; i++) {
+                const file = selectedArr[i];
+                let finalName = file.name;
+                let replaceExisting = false;
+
+                if (existingLowerSet.has(file.name.toLowerCase())) {
+                    let chosenAction = applyAllAction;
+                    if (!chosenAction) {
+                        const ans = await askDuplicateAction(file.name, dupTotal > 1);
+                        chosenAction = ans.action;
+                        if (ans.applyAll) applyAllAction = chosenAction;
+                    }
+
+                    if (chosenAction === "skip") continue;
+                    else if (chosenAction === "rename") finalName = getUniqueFileName(file.name, existingLowerSet);
+                    else if (chosenAction === "replace") replaceExisting = true;
+                }
+
+                existingLowerSet.add(finalName.toLowerCase());
                 const task = {
                     id: Date.now() + "_" + Math.random().toString(36).slice(2, 7),
-                    file: files[i],
-                    name: files[i].name,
+                    file,
+                    name: finalName,
                     targetPath: currentPath,
                     uploadedChunks: [],
                     thumbFileId: "",
+                    replaceExisting,
                     status: "queued",
                     progress: 0,
                     note: "",
@@ -1927,8 +2121,10 @@
                 };
                 uploadTasks.push(task);
                 idbSaveTask(task);
+                addedCount++;
             }
-            document.getElementById("fileInput").value = "";
+
+            if (addedCount === 0) return showStatus("No files queued for upload.");
             updateUploadFab();
             renderUploadQueue();
             openUploadModal();
@@ -1992,6 +2188,18 @@
             });
         }
 
+        function commitUploadedFileRecord(task, newRecord) {
+            if (task.replaceExisting) {
+                for (let i = fileHistory.length - 1; i >= 0; i--) {
+                    const it = fileHistory[i];
+                    if (it.type !== "folder" && (it.path || "/") === task.targetPath && (it.name || "").toLowerCase() === task.name.toLowerCase()) {
+                        fileHistory.splice(i, 1);
+                    }
+                }
+            }
+            fileHistory.push(newRecord);
+        }
+
         async function startUploadTask(task) {
             task.status = "uploading";
             task.note = "";
@@ -2020,7 +2228,7 @@
                             const thumbId = (doc.thumbnail && doc.thumbnail.file_id) || (doc.thumb && doc.thumb.file_id) || "";
                             if (thumbId && thumbBlob) saveThumbToCache(thumbId, thumbBlob);
 
-                            fileHistory.push({
+                            commitUploadedFileRecord(task, {
                                 type: "file",
                                 msgId: String(r.message_id),
                                 fileId: doc.file_id,
@@ -2098,7 +2306,7 @@
                         }
                     }
 
-                    fileHistory.push({
+                    commitUploadedFileRecord(task, {
                         type: "file",
                         isChunked: true,
                         name: task.name,
@@ -2233,10 +2441,11 @@
                             <div class="queue-name"></div>
                             <div class="queue-btns"></div>
                         </div>
-                        <div class="queue-status ${statusCls}">${statusText}</div>
+                        <div class="queue-status ${statusCls}"></div>
                         ${t.status === "uploading" ? `<div class="queue-bar-track"><div class="queue-bar-fill" style="width:${t.progress}%"></div></div>` : ""}
                     `;
                     div.querySelector(".queue-name").innerText = t.name;
+                    div.querySelector(".queue-status").innerText = statusText;
 
                     const btns = div.querySelector(".queue-btns");
                     if (t.status === "uploading" || t.status === "queued" || t.status === "waiting") {
@@ -2280,9 +2489,10 @@
                             <div class="queue-name"></div>
                             <span style="color:var(--success);font-size:13px;font-weight:700;">✓</span>
                         </div>
-                        <div class="queue-status done">Uploaded to ${t.targetPath}</div>
+                        <div class="queue-status done"></div>
                     `;
                     div.querySelector(".queue-name").innerText = t.name;
+                    div.querySelector(".queue-status").innerText = "Uploaded to " + t.targetPath;
                     body.appendChild(div);
                 });
             }
@@ -2437,7 +2647,6 @@
                 img.draggable = false;
                 img.decoding = "async";
 
-                // Instant HD render if already preloaded
                 const preloaded = viewerPreloadMap.get(item.fileId);
                 if (preloaded && preloaded.complete && preloaded.naturalWidth > 0) {
                     img.src = preloaded.src;
@@ -2452,7 +2661,7 @@
                 badge.innerText = "Loading HD...";
 
                 const thumbId = item.thumbFileId;
-                const localThumbUrl = thumbId ? (await getCachedThumbUrl(thumbId) || urlCache[thumbId]) : null;
+                const localThumbUrl = thumbId ? (await getCachedThumbUrl(thumbId) || getFreshCachedUrl(thumbId)) : null;
                 if (!isViewerOpen || currentMediaIndex !== idx) return;
 
                 if (localThumbUrl) {
@@ -2578,7 +2787,6 @@
             }
         }, { passive: true });
 
-        // Desktop Mouse Wheel Zoom & Drag Pan
         viewerBody.addEventListener("wheel", (e) => {
             const img = document.getElementById("activeZoomImg");
             if (!isViewerOpen || !img) return;
@@ -2620,36 +2828,59 @@
         });
 
         async function moveToTrash(item) {
-            const idx = fileHistory.findIndex(x => x === item || JSON.stringify(x) === JSON.stringify(item));
-            if (idx !== -1) {
-                fileHistory.splice(idx, 1);
-                trashHistory.push(item);
+            const snap = snapshotState();
+            const allToMove = collectWithNested([item], fileHistory);
+            let moved = false;
+            allToMove.forEach(it => {
+                const idx = fileHistory.indexOf(it);
+                if (idx !== -1) {
+                    fileHistory.splice(idx, 1);
+                    trashHistory.push(it);
+                    moved = true;
+                }
+            });
+            if (moved) {
+                showStatus("Moving to Recycle Bin...", false);
                 renderFiles();
-                await syncToCloud();
-                showStatus("Moved to Recycle Bin.");
+                const ok = await syncToCloud();
+                if (ok) showStatus("Moved to Recycle Bin.");
+                else restoreSnapshot(snap);
             }
         }
 
         async function restoreItem(item) {
-            const idx = trashHistory.indexOf(item);
-            if (idx !== -1) {
-                trashHistory.splice(idx, 1);
-                fileHistory.push(item);
+            const snap = snapshotState();
+            const allToRestore = collectWithNested([item], trashHistory);
+            let restored = false;
+            allToRestore.forEach(it => {
+                const idx = trashHistory.indexOf(it);
+                if (idx !== -1) {
+                    trashHistory.splice(idx, 1);
+                    fileHistory.push(it);
+                    restored = true;
+                }
+            });
+            if (restored) {
+                showStatus("Restoring...", false);
                 renderFiles();
-                await syncToCloud();
-                showStatus("Item restored.");
+                const ok = await syncToCloud();
+                if (ok) showStatus("Item restored.");
+                else restoreSnapshot(snap);
             }
         }
 
         async function deletePermanently(item) {
-            const idx = trashHistory.indexOf(item);
-            if (idx === -1) return;
+            const toDelete = collectWithNested([item], trashHistory);
+            if (toDelete.length === 0) return;
             showStatus("Deleting permanently...", false);
-            await deleteItemFromTelegram(item);
-            trashHistory.splice(idx, 1);
+            for (let i = 0; i < toDelete.length; i++) {
+                await deleteItemFromTelegram(toDelete[i]);
+                const idx = trashHistory.indexOf(toDelete[i]);
+                if (idx !== -1) trashHistory.splice(idx, 1);
+            }
             renderFiles();
-            await syncToCloud();
-            showStatus("Permanently deleted.");
+            const ok = await syncToCloud();
+            if (ok) showStatus("Permanently deleted.");
         }
 
         if (licenseKey && botToken && chatId) openWorkspace();
