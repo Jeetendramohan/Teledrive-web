@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex, nofollow">
-    <title>TeleCloud Drive v8.4</title>
+    <title>TeleCloud Drive v9.0</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <style>
         :root {
@@ -557,7 +557,6 @@
     </div>
 
     <div id="statusBar"></div>
-
     <script>
         const FIREBASE_URL = "https://teledrive300-default-rtdb.firebaseio.com/";
         const WORKER_URL = "https://teledrive-dl.mohanjeetendraom.workers.dev/";
@@ -589,6 +588,26 @@
 
         if ("serviceWorker" in navigator) {
             navigator.serviceWorker.register("./sw.js").catch(() => {});
+        }
+
+        function dbChannelBase() {
+            return `${FIREBASE_URL}users/${encodeURIComponent(licenseKey)}/channels/${encodeURIComponent(chatId)}`;
+        }
+
+        function sanitizeKey(str) {
+            return String(str).replace(/[.#$\[\]\/]/g, "_");
+        }
+
+        function ensureItemId(item) {
+            if (item && item.id) return item.id;
+            let raw;
+            if (item && item.msgId) raw = "msg_" + item.msgId;
+            else if (item && item.isChunked && Array.isArray(item.chunks) && item.chunks.length > 0 && item.chunks[0].msgId) raw = "chk_" + item.chunks[0].msgId;
+            else if (item && item.type === "folder") raw = "fld_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+            else raw = "itm_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+            const safe = sanitizeKey(raw);
+            if (item) item.id = safe;
+            return safe;
         }
 
         function formatBytes(bytes) {
@@ -1183,14 +1202,41 @@
             restorePendingUploadsFromDB();
         }
 
+        // --- PER-FILE FIREBASE SYNC (v9.0) ---
         async function fetchFromCloud() {
             showStatus("Syncing...", false);
             try {
-                const res = await fetch(`${FIREBASE_URL}users/${encodeURIComponent(licenseKey)}/channels/${encodeURIComponent(chatId)}.json`);
-                if (!res.ok) throw new Error("HTTP " + res.status);
-                const data = await res.json();
-                fileHistory = (data && Array.isArray(data.fileHistory)) ? data.fileHistory : [];
-                trashHistory = (data && Array.isArray(data.trashHistory)) ? data.trashHistory : [];
+                const base = dbChannelBase();
+                const [fRes, tRes] = await Promise.all([
+                    fetch(`${base}/files.json`),
+                    fetch(`${base}/trash.json`)
+                ]);
+                if (!fRes.ok || !tRes.ok) throw new Error("HTTP error");
+                const fObj = await fRes.json();
+                const tObj = await tRes.json();
+
+                fileHistory = [];
+                if (fObj && typeof fObj === "object") {
+                    Object.keys(fObj).forEach(k => {
+                        if (fObj[k] && typeof fObj[k] === "object") {
+                            fObj[k].id = k;
+                            fileHistory.push(fObj[k]);
+                        }
+                    });
+                }
+                fileHistory.sort((a, b) => (a.uploadedAt || 0) - (b.uploadedAt || 0));
+
+                trashHistory = [];
+                if (tObj && typeof tObj === "object") {
+                    Object.keys(tObj).forEach(k => {
+                        if (tObj[k] && typeof tObj[k] === "object") {
+                            tObj[k].id = k;
+                            trashHistory.push(tObj[k]);
+                        }
+                    });
+                }
+                trashHistory.sort((a, b) => (a.uploadedAt || 0) - (b.uploadedAt || 0));
+
                 renderFiles();
                 showStatus("Synced.");
             } catch (e) {
@@ -1198,13 +1244,14 @@
             }
         }
 
-        async function syncToCloud() {
+        async function fbPatchChannel(updates) {
+            if (!updates || Object.keys(updates).length === 0) return true;
             isSyncing = true;
             try {
-                const res = await fetch(`${FIREBASE_URL}users/${encodeURIComponent(licenseKey)}/channels/${encodeURIComponent(chatId)}.json`, {
-                    method: "PUT",
+                const res = await fetch(`${dbChannelBase()}.json`, {
+                    method: "PATCH",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ fileHistory, trashHistory })
+                    body: JSON.stringify(updates)
                 });
                 if (!res.ok) throw new Error("HTTP " + res.status);
                 return true;
@@ -1379,15 +1426,23 @@
             }
 
             const snap = snapshotState();
+            const updates = {};
+            const targetId = ensureItemId(itemToRename);
+
             if (itemToRename.type === "folder") {
                 const oldPrefix = basePath + itemToRename.name + "/";
                 const newPrefix = basePath + newName + "/";
                 itemToRename.name = newName;
+                updates[`files/${targetId}/name`] = newName;
                 fileHistory.forEach(it => {
-                    if (it.path && it.path.startsWith(oldPrefix)) it.path = newPrefix + it.path.slice(oldPrefix.length);
+                    if (it.path && it.path.startsWith(oldPrefix)) {
+                        it.path = newPrefix + it.path.slice(oldPrefix.length);
+                        updates[`files/${ensureItemId(it)}/path`] = it.path;
+                    }
                 });
             } else {
                 itemToRename.name = newName;
+                updates[`files/${targetId}/name`] = newName;
             }
 
             closeModal("renameModal");
@@ -1395,7 +1450,7 @@
             if (isMultiSelect) exitMultiSelect();
             showStatus("Renaming & syncing...", false);
             renderFiles();
-            const ok = await syncToCloud();
+            const ok = await fbPatchChannel(updates);
             if (ok) showStatus("Renamed successfully.");
             else restoreSnapshot(snap);
         }
@@ -1638,6 +1693,7 @@
             closeModal("moveModal");
             const snap = snapshotState();
             const toMove = [...selectedItems];
+            const updates = {};
             let movedCount = 0;
 
             toMove.forEach(item => {
@@ -1646,14 +1702,17 @@
                     if (targetPath.startsWith(oldPrefix)) return;
                     const newPrefix = targetPath + item.name + "/";
                     item.path = targetPath;
+                    updates[`files/${ensureItemId(item)}/path`] = targetPath;
                     fileHistory.forEach(child => {
                         if (child !== item && child.path && child.path.startsWith(oldPrefix)) {
                             child.path = newPrefix + child.path.slice(oldPrefix.length);
+                            updates[`files/${ensureItemId(child)}/path`] = child.path;
                         }
                     });
                     movedCount++;
                 } else {
                     item.path = targetPath;
+                    updates[`files/${ensureItemId(item)}/path`] = targetPath;
                     movedCount++;
                 }
             });
@@ -1661,7 +1720,7 @@
             exitMultiSelect();
             showStatus("Moving & syncing...", false);
             renderFiles();
-            const ok = await syncToCloud();
+            const ok = await fbPatchChannel(updates);
             if (ok) showStatus(`Moved ${movedCount} item(s).`);
             else restoreSnapshot(snap);
         }
@@ -1686,14 +1745,21 @@
             openConfirm("Move to Recycle Bin?", `Move ${count} selected item(s) to the Recycle Bin?`, "Move to Bin", "btn-danger", async () => {
                 const snap = snapshotState();
                 const allToMove = collectWithNested([...selectedItems], fileHistory);
+                const updates = {};
                 allToMove.forEach(item => {
                     const idx = fileHistory.indexOf(item);
-                    if (idx !== -1) { fileHistory.splice(idx, 1); trashHistory.push(item); }
+                    if (idx !== -1) {
+                        const id = ensureItemId(item);
+                        fileHistory.splice(idx, 1);
+                        trashHistory.push(item);
+                        updates[`files/${id}`] = null;
+                        updates[`trash/${id}`] = item;
+                    }
                 });
                 exitMultiSelect();
                 showStatus("Moving to Recycle Bin...", false);
                 renderFiles();
-                const ok = await syncToCloud();
+                const ok = await fbPatchChannel(updates);
                 if (ok) showStatus(`Moved ${count} item(s) to Recycle Bin.`);
                 else restoreSnapshot(snap);
             });
@@ -1704,14 +1770,21 @@
             if (count === 0) return;
             const snap = snapshotState();
             const allToRestore = collectWithNested([...selectedItems], trashHistory);
+            const updates = {};
             allToRestore.forEach(item => {
                 const idx = trashHistory.indexOf(item);
-                if (idx !== -1) { trashHistory.splice(idx, 1); fileHistory.push(item); }
+                if (idx !== -1) {
+                    const id = ensureItemId(item);
+                    trashHistory.splice(idx, 1);
+                    fileHistory.push(item);
+                    updates[`trash/${id}`] = null;
+                    updates[`files/${id}`] = item;
+                }
             });
             exitMultiSelect();
             showStatus("Restoring & syncing...", false);
             renderFiles();
-            const ok = await syncToCloud();
+            const ok = await fbPatchChannel(updates);
             if (ok) showStatus(`Restored ${count} item(s).`);
             else restoreSnapshot(snap);
         }
@@ -1752,6 +1825,7 @@
             openConfirm("Delete Permanently?", `${count} selected item(s) will be permanently deleted from both Telegram and TeleCloud.`, "Delete Permanently", "btn-danger", async () => {
                 const toDelete = collectWithNested([...selectedItems], trashHistory);
                 exitMultiSelect();
+                const updates = {};
                 for (let i = 0; i < toDelete.length; i++) {
                     const item = toDelete[i];
                     showStatus(`Deleting (${i + 1}/${toDelete.length})...`, false);
@@ -1759,9 +1833,10 @@
                     if (toDelete.length > 3) await new Promise(r => setTimeout(r, 250));
                     const idx = trashHistory.indexOf(item);
                     if (idx !== -1) trashHistory.splice(idx, 1);
+                    updates[`trash/${ensureItemId(item)}`] = null;
                 }
                 renderFiles();
-                const ok = await syncToCloud();
+                const ok = await fbPatchChannel(updates);
                 if (ok) showStatus(`Permanently deleted ${count} item(s).`);
             });
         }
@@ -2014,10 +2089,12 @@
 
             closeModal("folderModal");
             const snap = snapshotState();
-            fileHistory.push({ type: "folder", name, path: currentPath, uploadedAt: Date.now() });
+            const folderObj = { type: "folder", name, path: currentPath, uploadedAt: Date.now() };
+            const id = ensureItemId(folderObj);
+            fileHistory.push(folderObj);
             showStatus("Creating folder...", false);
             renderFiles();
-            const ok = await syncToCloud();
+            const ok = await fbPatchChannel({ [`files/${id}`]: folderObj });
             if (ok) showStatus("Folder created.");
             else restoreSnapshot(snap);
         }
@@ -2188,16 +2265,21 @@
             });
         }
 
-        function commitUploadedFileRecord(task, newRecord) {
+        async function commitUploadedFileRecord(task, newRecord) {
+            const updates = {};
             if (task.replaceExisting) {
                 for (let i = fileHistory.length - 1; i >= 0; i--) {
                     const it = fileHistory[i];
                     if (it.type !== "folder" && (it.path || "/") === task.targetPath && (it.name || "").toLowerCase() === task.name.toLowerCase()) {
+                        updates[`files/${ensureItemId(it)}`] = null;
                         fileHistory.splice(i, 1);
                     }
                 }
             }
+            const newId = ensureItemId(newRecord);
+            updates[`files/${newId}`] = newRecord;
             fileHistory.push(newRecord);
+            await fbPatchChannel(updates);
         }
 
         async function startUploadTask(task) {
@@ -2228,7 +2310,7 @@
                             const thumbId = (doc.thumbnail && doc.thumbnail.file_id) || (doc.thumb && doc.thumb.file_id) || "";
                             if (thumbId && thumbBlob) saveThumbToCache(thumbId, thumbBlob);
 
-                            commitUploadedFileRecord(task, {
+                            await commitUploadedFileRecord(task, {
                                 type: "file",
                                 msgId: String(r.message_id),
                                 fileId: doc.file_id,
@@ -2242,7 +2324,6 @@
                             task.progress = 100;
                             task.file = null;
                             await idbDeleteTask(task.id);
-                            await syncToCloud();
                             renderFiles();
                         } else {
                             task.status = "failed";
@@ -2306,7 +2387,7 @@
                         }
                     }
 
-                    commitUploadedFileRecord(task, {
+                    await commitUploadedFileRecord(task, {
                         type: "file",
                         isChunked: true,
                         name: task.name,
@@ -2321,7 +2402,6 @@
                     task.note = "";
                     task.file = null;
                     await idbDeleteTask(task.id);
-                    await syncToCloud();
                     renderFiles();
                 }
             } catch (e) {
@@ -2830,19 +2910,23 @@
         async function moveToTrash(item) {
             const snap = snapshotState();
             const allToMove = collectWithNested([item], fileHistory);
+            const updates = {};
             let moved = false;
             allToMove.forEach(it => {
                 const idx = fileHistory.indexOf(it);
                 if (idx !== -1) {
+                    const id = ensureItemId(it);
                     fileHistory.splice(idx, 1);
                     trashHistory.push(it);
+                    updates[`files/${id}`] = null;
+                    updates[`trash/${id}`] = it;
                     moved = true;
                 }
             });
             if (moved) {
                 showStatus("Moving to Recycle Bin...", false);
                 renderFiles();
-                const ok = await syncToCloud();
+                const ok = await fbPatchChannel(updates);
                 if (ok) showStatus("Moved to Recycle Bin.");
                 else restoreSnapshot(snap);
             }
@@ -2851,19 +2935,23 @@
         async function restoreItem(item) {
             const snap = snapshotState();
             const allToRestore = collectWithNested([item], trashHistory);
+            const updates = {};
             let restored = false;
             allToRestore.forEach(it => {
                 const idx = trashHistory.indexOf(it);
                 if (idx !== -1) {
+                    const id = ensureItemId(it);
                     trashHistory.splice(idx, 1);
                     fileHistory.push(it);
+                    updates[`trash/${id}`] = null;
+                    updates[`files/${id}`] = it;
                     restored = true;
                 }
             });
             if (restored) {
                 showStatus("Restoring...", false);
                 renderFiles();
-                const ok = await syncToCloud();
+                const ok = await fbPatchChannel(updates);
                 if (ok) showStatus("Item restored.");
                 else restoreSnapshot(snap);
             }
@@ -2873,13 +2961,15 @@
             const toDelete = collectWithNested([item], trashHistory);
             if (toDelete.length === 0) return;
             showStatus("Deleting permanently...", false);
+            const updates = {};
             for (let i = 0; i < toDelete.length; i++) {
                 await deleteItemFromTelegram(toDelete[i]);
                 const idx = trashHistory.indexOf(toDelete[i]);
                 if (idx !== -1) trashHistory.splice(idx, 1);
+                updates[`trash/${ensureItemId(toDelete[i])}`] = null;
             }
             renderFiles();
-            const ok = await syncToCloud();
+            const ok = await fbPatchChannel(updates);
             if (ok) showStatus("Permanently deleted.");
         }
 
@@ -2887,4 +2977,3 @@
     </script>
 </body>
 </html>
-
