@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex, nofollow">
-    <title>TeleCloud Drive v9.0</title>
+    <title>TeleCloud Drive v10.0</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <style>
         :root {
@@ -70,10 +70,15 @@
         body { background: var(--bg); color: var(--text); padding-bottom: 110px; min-height: 100vh; transition: background 0.2s, color 0.2s; }
 
         #loginScreen { max-width: 400px; margin: 48px auto; padding: 28px 24px; background: var(--surface); border-radius: 20px; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12); width: calc(100% - 32px); }
-        .brand-header { text-align: center; margin-bottom: 24px; }
+        .brand-header { text-align: center; margin-bottom: 20px; }
         .brand-logo { width: 56px; height: 56px; background: var(--primary-soft); color: var(--primary); border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px; }
         .brand-header h2 { font-size: 22px; font-weight: 700; color: var(--text); }
         .brand-header p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+        .login-tabs { display: flex; gap: 6px; background: var(--surface-2); padding: 4px; border-radius: 12px; margin-bottom: 18px; }
+        .login-tab { flex: 1; border: none; background: transparent; color: var(--muted); padding: 9px 10px; border-radius: 9px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.15s; }
+        .login-tab.active { background: var(--surface); color: var(--primary); box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08); }
+        [data-theme="dark"] .login-tab.active { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
 
         .input-group { margin-bottom: 14px; }
         .input-group label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
@@ -308,19 +313,35 @@
             <h2>TeleCloud Drive</h2>
             <p>Private Personal Cloud Storage</p>
         </div>
-        <div class="input-group">
-            <label>License Key</label>
-            <input type="text" id="inpKey" placeholder="Enter your license key">
+
+        <div class="login-tabs">
+            <button type="button" class="login-tab active" id="tabPrivate" onclick="switchLoginTab('private')">Private Login</button>
+            <button type="button" class="login-tab" id="tabCustom" onclick="switchLoginTab('custom')">Custom Login</button>
         </div>
-        <div class="input-group">
-            <label>Telegram Bot Token</label>
-            <input type="password" id="inpToken" placeholder="123456:ABC-DEF...">
+
+        <div id="privateLoginPane">
+            <div class="input-group">
+                <label>Master Password</label>
+                <input type="password" id="inpMasterPwd" placeholder="Enter master password" onkeydown="if(event.key==='Enter') loginPrivate()">
+            </div>
+            <button class="btn btn-primary btn-full" onclick="loginPrivate()">Sign In</button>
         </div>
-        <div class="input-group">
-            <label>Channel / Chat ID</label>
-            <input type="text" id="inpChatId" placeholder="e.g. -100123456789">
+
+        <div id="customLoginPane" style="display:none;">
+            <div class="input-group">
+                <label>License Key</label>
+                <input type="text" id="inpKey" placeholder="Enter your license key">
+            </div>
+            <div class="input-group">
+                <label>Telegram Bot Token</label>
+                <input type="password" id="inpToken" placeholder="123456:ABC-DEF...">
+            </div>
+            <div class="input-group">
+                <label>Channel / Chat ID</label>
+                <input type="text" id="inpChatId" placeholder="e.g. -100123456789" onkeydown="if(event.key==='Enter') login()">
+            </div>
+            <button class="btn btn-primary btn-full" onclick="login()">Sign In</button>
         </div>
-        <button class="btn btn-primary btn-full" onclick="login()">Sign In</button>
     </div>
 
     <div id="workspace">
@@ -560,6 +581,7 @@
     <script>
         const FIREBASE_URL = "https://teledrive300-default-rtdb.firebaseio.com/";
         const WORKER_URL = "https://teledrive-dl.mohanjeetendraom.workers.dev/";
+        const WORKER_BASE = WORKER_URL.replace(/\/+$/, "");
         const CHUNK_SIZE = 19 * 1024 * 1024; // 19 MB per chunk
         const MAX_ZOOM = 10;
         const URL_CACHE_TTL_MS = 50 * 60 * 1000; // 50 minutes
@@ -568,9 +590,23 @@
             history.scrollRestoration = "manual";
         }
 
+        let authMode = localStorage.getItem("td_auth_mode") || "";
+        let appPassword = localStorage.getItem("td_app_pwd") || "";
         let licenseKey = localStorage.getItem("td_key") || "";
         let botToken = localStorage.getItem("td_token") || "";
         let chatId = localStorage.getItem("td_chatId") || "";
+
+        function isPrivateMode() {
+            return authMode === "private" && Boolean(appPassword);
+        }
+
+        function switchLoginTab(mode) {
+            const isPriv = mode === "private";
+            document.getElementById("tabPrivate").classList.toggle("active", isPriv);
+            document.getElementById("tabCustom").classList.toggle("active", !isPriv);
+            document.getElementById("privateLoginPane").style.display = isPriv ? "block" : "none";
+            document.getElementById("customLoginPane").style.display = isPriv ? "none" : "block";
+        }
 
         let fileHistory = [];
         let trashHistory = [];
@@ -1004,6 +1040,16 @@
             document.getElementById("propertiesModal").classList.add("open");
         }
 
+        function buildPrivateFileUrl(fileId, fileName = "file", forceDownload = false) {
+            return `${WORKER_BASE}/api/file?fileId=${encodeURIComponent(fileId)}&name=${encodeURIComponent(fileName)}${forceDownload ? "&dl=1" : ""}&pwd=${encodeURIComponent(appPassword)}`;
+        }
+
+        function fetchPrivateFile(fileId, fileName = "file") {
+            return fetch(`${WORKER_BASE}/api/file?fileId=${encodeURIComponent(fileId)}&name=${encodeURIComponent(fileName)}`, {
+                headers: { "X-App-Password": appPassword }
+            });
+        }
+
         async function getTelegramDirectUrl(fileId) {
             if (!fileId) return null;
             const cached = getFreshCachedUrl(fileId);
@@ -1030,9 +1076,15 @@
                 return downloadChunkedFileViaSW(item);
             }
             showStatus(`Downloading ${item.name}...`, false);
-            const tgUrl = await getTelegramDirectUrl(item.fileId);
-            if (!tgUrl) return showStatus("File exceeds the 20 MB Bot API limit or is unavailable.");
-            const dlUrl = buildWorkerUrl(tgUrl, item.name || "file", true);
+            let dlUrl = "";
+            if (isPrivateMode()) {
+                if (!item.fileId) return showStatus("File unavailable.");
+                dlUrl = buildPrivateFileUrl(item.fileId, item.name || "file", true);
+            } else {
+                const tgUrl = await getTelegramDirectUrl(item.fileId);
+                if (!tgUrl) return showStatus("File exceeds the 20 MB Bot API limit or is unavailable.");
+                dlUrl = buildWorkerUrl(tgUrl, item.name || "file", true);
+            }
             const a = document.createElement("a");
             a.href = dlUrl;
             a.download = item.name || "file";
@@ -1052,6 +1104,24 @@
                     const sw = reg.active || navigator.serviceWorker.controller;
                     if (sw) {
                         const dlId = Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+                        const swPayload = isPrivateMode()
+                            ? {
+                                authMode: "private",
+                                name: item.name || "file",
+                                size: item.size || 0,
+                                chunks: item.chunks,
+                                appPassword,
+                                workerUrl: WORKER_URL
+                            }
+                            : {
+                                authMode: "custom",
+                                name: item.name || "file",
+                                size: item.size || 0,
+                                chunks: item.chunks,
+                                botToken,
+                                workerUrl: WORKER_URL
+                            };
+
                         await new Promise((resolve, reject) => {
                             const ch = new MessageChannel();
                             ch.port1.onmessage = () => resolve();
@@ -1059,13 +1129,7 @@
                             sw.postMessage({
                                 type: "REGISTER_DOWNLOAD",
                                 id: dlId,
-                                payload: {
-                                    name: item.name || "file",
-                                    size: item.size || 0,
-                                    chunks: item.chunks,
-                                    botToken,
-                                    workerUrl: WORKER_URL
-                                }
+                                payload: swPayload
                             }, [ch.port2]);
                         });
 
@@ -1086,9 +1150,14 @@
                 const blobs = [];
                 for (let i = 0; i < item.chunks.length; i++) {
                     showStatus(`Downloading part ${i + 1}/${item.chunks.length}...`, false);
-                    const tgUrl = await getTelegramDirectUrl(item.chunks[i].fileId);
-                    if (!tgUrl) throw new Error("Chunk missing");
-                    const res = await fetch(buildWorkerUrl(tgUrl, `part_${i + 1}`, false));
+                    let res;
+                    if (isPrivateMode()) {
+                        res = await fetchPrivateFile(item.chunks[i].fileId, `part_${i + 1}`);
+                    } else {
+                        const tgUrl = await getTelegramDirectUrl(item.chunks[i].fileId);
+                        if (!tgUrl) throw new Error("Chunk missing");
+                        res = await fetch(buildWorkerUrl(tgUrl, `part_${i + 1}`, false));
+                    }
                     if (!res.ok) throw new Error("Fetch failed");
                     blobs.push(await res.blob());
                 }
@@ -1130,6 +1199,32 @@
                 el.appendChild(img);
                 return;
             }
+            if (isPrivateMode()) {
+                if (isDedicatedThumb) {
+                    try {
+                        const res = await fetchPrivateFile(fid, "thumb.jpg");
+                        if (res.ok) {
+                            const blob = await res.blob();
+                            await saveThumbToCache(fid, blob);
+                            const objUrl = URL.createObjectURL(blob);
+                            thumbObjectUrls.set(fid, objUrl);
+                            const img = document.createElement("img");
+                            img.decoding = "async";
+                            img.src = objUrl;
+                            img.alt = "";
+                            el.innerHTML = "";
+                            el.appendChild(img);
+                            return;
+                        }
+                    } catch (e) {}
+                }
+                const img = document.createElement("img");
+                img.decoding = "async";
+                img.src = buildPrivateFileUrl(fid, "thumb.jpg", false);
+                img.alt = "";
+                img.onload = () => { el.innerHTML = ""; el.appendChild(img); };
+                return;
+            }
             const tgUrl = await getTelegramDirectUrl(fid);
             if (!tgUrl) return;
             if (isDedicatedThumb) {
@@ -1157,6 +1252,38 @@
             img.onload = () => { el.innerHTML = ""; el.appendChild(img); };
         }
 
+        async function loginPrivate() {
+            const pwd = document.getElementById("inpMasterPwd").value;
+            if (!pwd) return showStatus("Please enter master password.");
+
+            showStatus("Verifying password...", false);
+            try {
+                const res = await fetch(`${WORKER_BASE}/api/login`, {
+                    method: "POST",
+                    headers: { "X-App-Password": pwd }
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok && data.ok) {
+                    authMode = "private";
+                    appPassword = pwd;
+                    licenseKey = "";
+                    botToken = "";
+                    chatId = "";
+                    localStorage.setItem("td_auth_mode", "private");
+                    localStorage.setItem("td_app_pwd", pwd);
+                    localStorage.removeItem("td_key");
+                    localStorage.removeItem("td_token");
+                    localStorage.removeItem("td_chatId");
+                    sessionStorage.removeItem("td_url_cache");
+                    openWorkspace();
+                } else {
+                    showStatus(data.error || "Invalid master password.");
+                }
+            } catch (e) {
+                showStatus("Network error. Please try again.");
+            }
+        }
+
         async function login() {
             const k = document.getElementById("inpKey").value.trim();
             const t = document.getElementById("inpToken").value.trim();
@@ -1168,7 +1295,11 @@
                 const res = await fetch(`${FIREBASE_URL}valid_keys/${encodeURIComponent(k)}.json`);
                 const val = await res.json();
                 if (val === true || val === "true") {
+                    authMode = "custom";
+                    appPassword = "";
                     licenseKey = k; botToken = t; chatId = c;
+                    localStorage.setItem("td_auth_mode", "custom");
+                    localStorage.removeItem("td_app_pwd");
                     localStorage.setItem("td_key", k);
                     localStorage.setItem("td_token", t);
                     localStorage.setItem("td_chatId", c);
@@ -1183,6 +1314,8 @@
 
         function confirmLogout() {
             openConfirm("Sign Out?", "Are you sure you want to sign out of TeleCloud Drive?", "Sign Out", "btn-danger", () => {
+                localStorage.removeItem("td_auth_mode");
+                localStorage.removeItem("td_app_pwd");
                 localStorage.removeItem("td_key");
                 localStorage.removeItem("td_token");
                 localStorage.removeItem("td_chatId");
@@ -1202,18 +1335,39 @@
             restorePendingUploadsFromDB();
         }
 
-        // --- PER-FILE FIREBASE SYNC (v9.0) ---
+        // --- PER-FILE FIREBASE SYNC (v10.0 Hybrid) ---
         async function fetchFromCloud() {
             showStatus("Syncing...", false);
             try {
-                const base = dbChannelBase();
-                const [fRes, tRes] = await Promise.all([
-                    fetch(`${base}/files.json`),
-                    fetch(`${base}/trash.json`)
-                ]);
-                if (!fRes.ok || !tRes.ok) throw new Error("HTTP error");
-                const fObj = await fRes.json();
-                const tObj = await tRes.json();
+                let fObj = null;
+                let tObj = null;
+
+                if (isPrivateMode()) {
+                    const res = await fetch(`${WORKER_BASE}/api/data`, {
+                        method: "GET",
+                        headers: { "X-App-Password": appPassword }
+                    });
+                    if (res.status === 401) {
+                        showStatus("Password invalid or changed. Please sign in again.");
+                        localStorage.removeItem("td_auth_mode");
+                        localStorage.removeItem("td_app_pwd");
+                        setTimeout(() => location.reload(), 1200);
+                        return;
+                    }
+                    if (!res.ok) throw new Error("HTTP error");
+                    const payload = await res.json();
+                    fObj = payload.files || {};
+                    tObj = payload.trash || {};
+                } else {
+                    const base = dbChannelBase();
+                    const [fRes, tRes] = await Promise.all([
+                        fetch(`${base}/files.json`),
+                        fetch(`${base}/trash.json`)
+                    ]);
+                    if (!fRes.ok || !tRes.ok) throw new Error("HTTP error");
+                    fObj = await fRes.json();
+                    tObj = await tRes.json();
+                }
 
                 fileHistory = [];
                 if (fObj && typeof fObj === "object") {
@@ -1248,11 +1402,23 @@
             if (!updates || Object.keys(updates).length === 0) return true;
             isSyncing = true;
             try {
-                const res = await fetch(`${dbChannelBase()}.json`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(updates)
-                });
+                let res;
+                if (isPrivateMode()) {
+                    res = await fetch(`${WORKER_BASE}/api/data`, {
+                        method: "PATCH",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-App-Password": appPassword
+                        },
+                        body: JSON.stringify(updates)
+                    });
+                } else {
+                    res = await fetch(`${dbChannelBase()}.json`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(updates)
+                    });
+                }
                 if (!res.ok) throw new Error("HTTP " + res.status);
                 return true;
             } catch (e) {
@@ -1262,7 +1428,6 @@
                 isSyncing = false;
             }
         }
-
         const SORT_OPTIONS = [
             { id: "newest", label: "Newest First", short: "Newest" },
             { id: "oldest", label: "Oldest First", short: "Oldest" },
@@ -1586,9 +1751,14 @@
                 const item = filesOnly[i];
                 showStatus(`Archiving (${i + 1}/${filesOnly.length}): ${item.name}...`, false);
                 try {
-                    const tgUrl = await getTelegramDirectUrl(item.fileId);
-                    if (!tgUrl) continue;
-                    const res = await fetch(buildWorkerUrl(tgUrl, item.name, false));
+                    let res;
+                    if (isPrivateMode()) {
+                        res = await fetchPrivateFile(item.fileId, item.name || `file_${i + 1}`);
+                    } else {
+                        const tgUrl = await getTelegramDirectUrl(item.fileId);
+                        if (!tgUrl) continue;
+                        res = await fetch(buildWorkerUrl(tgUrl, item.name, false));
+                    }
                     if (!res.ok) continue;
                     zip.file(item.name || `file_${i + 1}`, await res.blob());
                     added++;
@@ -1793,7 +1963,19 @@
             if (!msgId) return;
             for (let attempt = 0; attempt < 5; attempt++) {
                 try {
-                    const res = await fetch(`https://api.telegram.org/bot${botToken}/deleteMessage?chat_id=${encodeURIComponent(chatId)}&message_id=${encodeURIComponent(msgId)}`);
+                    let res;
+                    if (isPrivateMode()) {
+                        res = await fetch(`${WORKER_BASE}/api/delete`, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "X-App-Password": appPassword
+                            },
+                            body: JSON.stringify({ msgId: String(msgId) })
+                        });
+                    } else {
+                        res = await fetch(`https://api.telegram.org/bot${botToken}/deleteMessage?chat_id=${encodeURIComponent(chatId)}&message_id=${encodeURIComponent(msgId)}`);
+                    }
                     if (res.status === 429) {
                         const data = await res.json().catch(() => ({}));
                         const waitSec = (data.parameters && data.parameters.retry_after) ? data.parameters.retry_after : 4;
@@ -2005,7 +2187,7 @@
 
                 if (!isFolder && !item.isChunked && isImageFile(item.name)) {
                     card.addEventListener("mouseenter", () => {
-                        if (item.fileId && !getFreshCachedUrl(item.fileId)) getTelegramDirectUrl(item.fileId);
+                        if (!isPrivateMode() && item.fileId && !getFreshCachedUrl(item.fileId)) getTelegramDirectUrl(item.fileId);
                     }, { once: true });
                 }
 
@@ -2244,13 +2426,18 @@
         function uploadBlobXhr(task, blob, filename, thumbBlob, onProgress) {
             return new Promise((resolve, reject) => {
                 const formData = new FormData();
-                formData.append("chat_id", chatId);
+                if (!isPrivateMode()) formData.append("chat_id", chatId);
                 if (thumbBlob) formData.append("thumbnail", thumbBlob, "thumb.jpg");
                 formData.append("document", blob, filename);
 
                 const xhr = new XMLHttpRequest();
                 task.xhr = xhr;
-                xhr.open("POST", `https://api.telegram.org/bot${botToken}/sendDocument`);
+                if (isPrivateMode()) {
+                    xhr.open("POST", `${WORKER_BASE}/api/upload`);
+                    xhr.setRequestHeader("X-App-Password", appPassword);
+                } else {
+                    xhr.open("POST", `https://api.telegram.org/bot${botToken}/sendDocument`);
+                }
                 xhr.upload.onprogress = (e) => {
                     if (e.lengthComputable && onProgress) onProgress(e.loaded, e.total);
                 };
@@ -2682,7 +2869,9 @@
             if (!isViewerOpen || adjIdx < 0 || adjIdx >= currentMediaList.length) return;
             const adjItem = currentMediaList[adjIdx];
             if (!adjItem || !isImageFile(adjItem.name) || viewerPreloadMap.has(adjItem.fileId)) return;
-            const url = await getTelegramDirectUrl(adjItem.fileId);
+            const url = isPrivateMode()
+                ? buildPrivateFileUrl(adjItem.fileId, adjItem.name || "image.jpg", false)
+                : await getTelegramDirectUrl(adjItem.fileId);
             if (!url || !isViewerOpen) return;
             if (viewerPreloadMap.size >= 6) viewerPreloadMap.delete(viewerPreloadMap.keys().next().value);
             const preImg = new Image();
@@ -2741,7 +2930,7 @@
                 badge.innerText = "Loading HD...";
 
                 const thumbId = item.thumbFileId;
-                const localThumbUrl = thumbId ? (await getCachedThumbUrl(thumbId) || getFreshCachedUrl(thumbId)) : null;
+                const localThumbUrl = thumbId ? (await getCachedThumbUrl(thumbId) || (!isPrivateMode() ? getFreshCachedUrl(thumbId) : null)) : null;
                 if (!isViewerOpen || currentMediaIndex !== idx) return;
 
                 if (localThumbUrl) {
@@ -2752,7 +2941,9 @@
                     content.innerHTML = `<div style="color:#94a3b8;font-size:14px;">Loading...</div>`;
                 }
 
-                const fullUrl = await getTelegramDirectUrl(item.fileId);
+                const fullUrl = isPrivateMode()
+                    ? (item.fileId ? buildPrivateFileUrl(item.fileId, item.name || "image.jpg", false) : null)
+                    : await getTelegramDirectUrl(item.fileId);
                 if (!isViewerOpen || currentMediaIndex !== idx) return;
 
                 if (!fullUrl) {
@@ -2777,15 +2968,21 @@
                 hdLoader.src = fullUrl;
             } else {
                 content.innerHTML = `<div style="color:#94a3b8;font-size:14px;">Loading video...</div>`;
-                const url = await getTelegramDirectUrl(item.fileId);
-                if (!isViewerOpen || currentMediaIndex !== idx) return;
-                if (!url) {
+                let videoUrl = "";
+                if (isPrivateMode()) {
+                    videoUrl = item.fileId ? buildPrivateFileUrl(item.fileId, item.name || "video.mp4", false) : "";
+                } else {
+                    const url = await getTelegramDirectUrl(item.fileId);
+                    if (!isViewerOpen || currentMediaIndex !== idx) return;
+                    if (url) videoUrl = buildWorkerUrl(url, item.name, false);
+                }
+                if (!videoUrl) {
                     content.innerHTML = `<div style="color:#f87171;font-size:14px;padding:20px;text-align:center;">Unable to play video.</div>`;
                     return;
                 }
                 content.innerHTML = "";
                 const vid = document.createElement("video");
-                vid.src = buildWorkerUrl(url, item.name, false);
+                vid.src = videoUrl;
                 vid.controls = true;
                 vid.autoplay = true;
                 vid.playsInline = true;
@@ -2973,7 +3170,13 @@
             if (ok) showStatus("Permanently deleted.");
         }
 
-        if (licenseKey && botToken && chatId) openWorkspace();
+        if (isPrivateMode()) {
+            openWorkspace();
+        } else if (licenseKey && botToken && chatId) {
+            authMode = "custom";
+            openWorkspace();
+        }
     </script>
 </body>
 </html>
+
