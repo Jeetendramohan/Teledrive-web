@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex, nofollow">
-    <title>TeleCloud Drive v10.3</title>
+    <title>TeleCloud Drive v10.4</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <style>
         :root {
@@ -1066,7 +1066,8 @@
         });
 
         function restoreScrollForPath(pathKey) {
-            const y = scrollPositions[pathKey] || 0;
+            const saved = scrollPositions[pathKey];
+            const y = (typeof saved === "object" && saved !== null) ? (saved.y || 0) : (saved || 0);
             requestAnimationFrame(() => window.scrollTo(0, y));
         }
 
@@ -1123,7 +1124,9 @@
                 inTrash = false;
                 document.getElementById("btnTrash").classList.remove("trash-active");
                 document.getElementById("searchInput").value = "";
-                renderFiles();
+                const saved = scrollPositions[currentPath];
+                const savedCount = (typeof saved === "object" && saved !== null) ? (saved.count || 0) : 0;
+                renderFiles({ minCount: savedCount });
                 restoreScrollForPath(currentPath);
                 return;
             }
@@ -1132,7 +1135,9 @@
                 parts.pop();
                 currentPath = parts.length ? "/" + parts.join("/") + "/" : "/";
                 document.getElementById("searchInput").value = "";
-                renderFiles();
+                const saved = scrollPositions[currentPath];
+                const savedCount = (typeof saved === "object" && saved !== null) ? (saved.count || 0) : 0;
+                renderFiles({ minCount: savedCount });
                 restoreScrollForPath(currentPath);
             }
         });
@@ -1169,7 +1174,7 @@
         function restoreSnapshot(snap) {
             fileHistory = snap.files;
             trashHistory = snap.trash;
-            renderFiles();
+            renderFiles({ keepScroll: true });
         }
 
         function openPropertiesModal(item) {
@@ -1539,7 +1544,7 @@
             restorePendingUploadsFromDB();
         }
 
-        // --- PER-FILE FIREBASE SYNC (v10.3 Hybrid) ---
+        // --- PER-FILE FIREBASE SYNC (v10.4 Hybrid) ---
         async function fetchFromCloud() {
             showStatus("Syncing...", false);
             try {
@@ -1764,7 +1769,7 @@
         function toggleTrash() {
             if (isMultiSelect) exitMultiSelect();
             if (!inTrash) {
-                scrollPositions[currentPath] = window.scrollY;
+                scrollPositions[currentPath] = { y: window.scrollY, count: renderedCount };
                 inTrash = true;
                 history.pushState({ view: "trash" }, "");
                 document.getElementById("btnTrash").classList.add("trash-active");
@@ -1829,7 +1834,7 @@
             itemToRename = null;
             if (isMultiSelect) exitMultiSelect();
             showStatus("Renaming & syncing...", false);
-            renderFiles();
+            renderFiles({ keepScroll: true });
             const ok = await fbPatchChannel(updates);
             if (ok) showStatus("Renamed successfully.");
             else restoreSnapshot(snap);
@@ -2104,7 +2109,7 @@
 
             exitMultiSelect();
             showStatus("Moving & syncing...", false);
-            renderFiles();
+            renderFiles({ keepScroll: true });
             const ok = await fbPatchChannel(updates);
             if (ok) showStatus(`Moved ${movedCount} item(s).`);
             else restoreSnapshot(snap);
@@ -2143,7 +2148,7 @@
                 });
                 exitMultiSelect();
                 showStatus("Moving to Recycle Bin...", false);
-                renderFiles();
+                renderFiles({ keepScroll: true });
                 const ok = await fbPatchChannel(updates);
                 if (ok) showStatus(`Moved ${count} item(s) to Recycle Bin.`);
                 else restoreSnapshot(snap);
@@ -2168,7 +2173,7 @@
             });
             exitMultiSelect();
             showStatus("Restoring & syncing...", false);
-            renderFiles();
+            renderFiles({ keepScroll: true });
             const ok = await fbPatchChannel(updates);
             if (ok) showStatus(`Restored ${count} item(s).`);
             else restoreSnapshot(snap);
@@ -2232,7 +2237,7 @@
                     if (idx !== -1) trashHistory.splice(idx, 1);
                     updates[`trash/${ensureItemId(item)}`] = null;
                 }
-                renderFiles();
+                renderFiles({ keepScroll: true });
                 const ok = await fbPatchChannel(updates);
                 if (ok) showStatus(`Permanently deleted ${count} item(s).`);
             });
@@ -2288,7 +2293,7 @@
             };
         }
 
-        // --- Incremental Infinite Scroll Renderer (v10.2) ---
+        // --- Incremental Infinite Scroll Renderer (v10.4 Scroll-Safe) ---
         let activeRenderList = [];
         let activeRenderIsTrash = false;
         let renderedCount = 0;
@@ -2378,16 +2383,26 @@
 
             const thumb = document.createElement("div");
             thumb.className = "thumb-box" + (isFolder ? " folder-bg" : "");
-            thumb.innerHTML = isFolder ? ICONS.folder : getDefaultFileSvg(item.name);
 
             if (!isFolder) {
                 const hasDedicatedThumb = Boolean(item.thumbFileId);
                 const thumbId = item.thumbFileId || (!item.isChunked && isImageFile(item.name) ? item.fileId : "");
-                if (thumbId) {
-                    thumb.dataset.thumbId = thumbId;
-                    thumb.dataset.isThumb = hasDedicatedThumb ? "1" : "0";
-                    thumbObserver.observe(thumb);
+                if (thumbId && thumbObjectUrls.has(thumbId)) {
+                    const img = document.createElement("img");
+                    img.decoding = "async";
+                    img.src = thumbObjectUrls.get(thumbId);
+                    img.alt = "";
+                    thumb.appendChild(img);
+                } else {
+                    thumb.innerHTML = getDefaultFileSvg(item.name);
+                    if (thumbId) {
+                        thumb.dataset.thumbId = thumbId;
+                        thumb.dataset.isThumb = hasDedicatedThumb ? "1" : "0";
+                        thumbObserver.observe(thumb);
+                    }
                 }
+            } else {
+                thumb.innerHTML = ICONS.folder;
             }
 
             const info = document.createElement("div");
@@ -2424,7 +2439,7 @@
             return card;
         }
 
-        function appendNextRenderBatch() {
+        function appendNextRenderBatch(batchSize = RENDER_BATCH_SIZE) {
             const container = document.getElementById("fileContainer");
             if (scrollSentinelEl) {
                 scrollSentinelObserver.unobserve(scrollSentinelEl);
@@ -2433,7 +2448,7 @@
             }
             if (renderedCount >= activeRenderList.length) return;
 
-            const end = Math.min(renderedCount + RENDER_BATCH_SIZE, activeRenderList.length);
+            const end = Math.min(renderedCount + batchSize, activeRenderList.length);
             const frag = document.createDocumentFragment();
             for (let i = renderedCount; i < end; i++) {
                 const item = activeRenderList[i];
@@ -2451,7 +2466,11 @@
             }
         }
 
-        function renderFiles() {
+        function renderFiles(opts = {}) {
+            const keepScroll = Boolean(opts.keepScroll);
+            const prevY = keepScroll ? window.scrollY : 0;
+            const targetCount = Math.max(RENDER_BATCH_SIZE, keepScroll ? renderedCount : (opts.minCount || 0));
+
             updateStorageBadge();
             const container = document.getElementById("fileContainer");
             const pathDisplay = document.getElementById("pathDisplay");
@@ -2476,7 +2495,11 @@
                     container.innerHTML = `<div class="empty-msg">Recycle Bin is empty</div>`;
                     return;
                 }
-                appendNextRenderBatch();
+                appendNextRenderBatch(targetCount);
+                if (keepScroll) {
+                    window.scrollTo(0, prevY);
+                    requestAnimationFrame(() => window.scrollTo(0, prevY));
+                }
                 return;
             }
 
@@ -2505,11 +2528,15 @@
                 return;
             }
 
-            appendNextRenderBatch();
+            appendNextRenderBatch(targetCount);
+            if (keepScroll) {
+                window.scrollTo(0, prevY);
+                requestAnimationFrame(() => window.scrollTo(0, prevY));
+            }
         }
 
         function openFolder(name) {
-            scrollPositions[currentPath] = window.scrollY;
+            scrollPositions[currentPath] = { y: window.scrollY, count: renderedCount };
             currentPath = currentPath + name + "/";
             history.pushState({ view: "folder", path: currentPath }, "");
             document.getElementById("searchInput").value = "";
@@ -2793,7 +2820,7 @@
                                 task.progress = 100;
                                 task.file = null;
                                 await idbDeleteTask(task.id);
-                                renderFiles();
+                                renderFiles({ keepScroll: true });
                             } else {
                                 task.status = "failed";
                                 task.note = "Sync failed — tap to retry";
@@ -2876,7 +2903,7 @@
                         task.note = "";
                         task.file = null;
                         await idbDeleteTask(task.id);
-                        renderFiles();
+                        renderFiles({ keepScroll: true });
                     } else {
                         task.status = "failed";
                         task.note = "Sync failed — tap to retry";
@@ -3493,7 +3520,7 @@
             });
             if (moved) {
                 showStatus("Moving to Recycle Bin...", false);
-                renderFiles();
+                renderFiles({ keepScroll: true });
                 const ok = await fbPatchChannel(updates);
                 if (ok) showStatus("Moved to Recycle Bin.");
                 else restoreSnapshot(snap);
@@ -3518,7 +3545,7 @@
             });
             if (restored) {
                 showStatus("Restoring...", false);
-                renderFiles();
+                renderFiles({ keepScroll: true });
                 const ok = await fbPatchChannel(updates);
                 if (ok) showStatus("Item restored.");
                 else restoreSnapshot(snap);
@@ -3536,7 +3563,7 @@
                 if (idx !== -1) trashHistory.splice(idx, 1);
                 updates[`trash/${ensureItemId(toDelete[i])}`] = null;
             }
-            renderFiles();
+            renderFiles({ keepScroll: true });
             const ok = await fbPatchChannel(updates);
             if (ok) showStatus("Permanently deleted.");
         }
