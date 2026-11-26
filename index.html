@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex, nofollow">
-    <title>TeleCloud Drive v10.1</title>
+    <title>TeleCloud Drive v10.2</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <style>
         :root {
@@ -162,6 +162,7 @@
         #fileContainer { padding: 4px 16px 16px; overflow-anchor: none; }
         .list-view { display: flex; flex-direction: column; gap: 8px; }
         .grid-view { display: grid; grid-template-columns: repeat(var(--grid-cols, 3), minmax(0, 1fr)); gap: 10px; }
+        .scroll-sentinel { grid-column: 1 / -1; text-align: center; padding: 14px; font-size: 12px; color: var(--muted); }
 
         .item-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; transition: border-color 0.15s, background 0.15s; box-shadow: var(--shadow); position: relative; user-select: none; -webkit-user-select: none; }
         .item-card:hover { border-color: var(--primary); }
@@ -607,6 +608,7 @@
         const WORKER_URL = "https://teledrive-dl.mohanjeetendraom.workers.dev/";
         const WORKER_BASE = WORKER_URL.replace(/\/+$/, "");
         const CHUNK_SIZE = 19 * 1024 * 1024; // 19 MB per chunk
+        const RENDER_BATCH_SIZE = 100; // Incremental scroll batch size
         const MAX_ZOOM = 10;
         const URL_CACHE_TTL_MS = 50 * 60 * 1000; // 50 minutes
 
@@ -1532,7 +1534,7 @@
             restorePendingUploadsFromDB();
         }
 
-        // --- PER-FILE FIREBASE SYNC (v10.1 Hybrid) ---
+        // --- PER-FILE FIREBASE SYNC (v10.2 Hybrid) ---
         async function fetchFromCloud() {
             showStatus("Syncing...", false);
             try {
@@ -1683,10 +1685,16 @@
 
         function applySortToList(arr, sourceArray, mode) {
             const list = arr.slice();
-            if (mode === "name_asc") list.sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { numeric: true, sensitivity: "base" }));
-            else if (mode === "name_desc") list.sort((a, b) => (b.name || "").localeCompare(a.name || "", undefined, { numeric: true, sensitivity: "base" }));
-            else if (mode === "oldest") list.sort((a, b) => sourceArray.indexOf(a) - sourceArray.indexOf(b));
-            else list.sort((a, b) => sourceArray.indexOf(b) - sourceArray.indexOf(a));
+            if (mode === "name_asc") {
+                list.sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { numeric: true, sensitivity: "base" }));
+            } else if (mode === "name_desc") {
+                list.sort((a, b) => (b.name || "").localeCompare(a.name || "", undefined, { numeric: true, sensitivity: "base" }));
+            } else {
+                const idxMap = new Map();
+                for (let i = 0; i < sourceArray.length; i++) idxMap.set(sourceArray[i], i);
+                if (mode === "oldest") list.sort((a, b) => (idxMap.get(a) ?? 0) - (idxMap.get(b) ?? 0));
+                else list.sort((a, b) => (idxMap.get(b) ?? 0) - (idxMap.get(a) ?? 0));
+            }
             return list;
         }
 
@@ -2275,6 +2283,169 @@
             };
         }
 
+        // --- Incremental Infinite Scroll Renderer (v10.2) ---
+        let activeRenderList = [];
+        let activeRenderIsTrash = false;
+        let renderedCount = 0;
+        let scrollSentinelEl = null;
+
+        const scrollSentinelObserver = new IntersectionObserver((entries) => {
+            if (entries.some(e => e.isIntersecting)) {
+                appendNextRenderBatch();
+            }
+        }, { rootMargin: "400px" });
+
+        function createTrashCard(item) {
+            const isSelected = selectedItems.has(item);
+            const card = document.createElement("div");
+            card._item = item;
+            card.className = "item-card" + (isSelected ? " selected" : "");
+
+            const check = document.createElement("div");
+            check.className = "select-check";
+            check.innerText = isSelected ? "✓" : "";
+
+            attachInteractions(card, check, item, () => {
+                showStatus("Click checkbox or long-press to select items.");
+            });
+
+            const left = document.createElement("div");
+            left.className = "item-left";
+
+            const thumb = document.createElement("div");
+            thumb.className = "thumb-box" + (item.type === "folder" ? " folder-bg" : "");
+            thumb.innerHTML = item.type === "folder" ? ICONS.folder : getDefaultFileSvg(item.name);
+
+            const info = document.createElement("div");
+            info.className = "item-info";
+            info.innerHTML = `<div class="item-name"></div><div class="item-sub">In Recycle Bin</div>`;
+            info.querySelector(".item-name").innerText = item.name || "Untitled";
+
+            left.append(thumb, info);
+
+            const actions = document.createElement("div");
+            actions.className = "item-actions";
+
+            const btnRes = document.createElement("button");
+            btnRes.className = "mini-btn";
+            btnRes.title = "Restore";
+            btnRes.style.color = "var(--success)";
+            btnRes.innerHTML = ICONS.restore;
+            btnRes.onclick = (e) => { e.stopPropagation(); restoreItem(item); };
+
+            const btnDel = document.createElement("button");
+            btnDel.className = "mini-btn del";
+            btnDel.title = "Delete Permanently";
+            btnDel.innerHTML = ICONS.trash;
+            btnDel.onclick = (e) => {
+                e.stopPropagation();
+                openConfirm("Delete Permanently?", `"${item.name}" will be permanently deleted from both Telegram and TeleCloud.`, "Delete Permanently", "btn-danger", () => deletePermanently(item));
+            };
+
+            actions.append(btnRes, btnDel);
+            card.append(check, left, actions);
+            return card;
+        }
+
+        function createNormalCard(item) {
+            const isFolder = item.type === "folder";
+            const isSelected = selectedItems.has(item);
+            const card = document.createElement("div");
+            card._item = item;
+            card.className = "item-card" + (isSelected ? " selected" : "");
+
+            const check = document.createElement("div");
+            check.className = "select-check";
+            check.innerText = isSelected ? "✓" : "";
+
+            attachInteractions(card, check, item, () => {
+                isFolder ? openFolder(item.name) : handleFileClick(item);
+            });
+
+            if (!isFolder && !item.isChunked && isImageFile(item.name)) {
+                card.addEventListener("mouseenter", () => {
+                    if (!isPrivateMode() && item.fileId && !getFreshCachedUrl(item.fileId)) getTelegramDirectUrl(item.fileId);
+                }, { once: true });
+            }
+
+            const left = document.createElement("div");
+            left.className = "item-left";
+
+            const thumb = document.createElement("div");
+            thumb.className = "thumb-box" + (isFolder ? " folder-bg" : "");
+            thumb.innerHTML = isFolder ? ICONS.folder : getDefaultFileSvg(item.name);
+
+            if (!isFolder) {
+                const hasDedicatedThumb = Boolean(item.thumbFileId);
+                const thumbId = item.thumbFileId || (!item.isChunked && isImageFile(item.name) ? item.fileId : "");
+                if (thumbId) {
+                    thumb.dataset.thumbId = thumbId;
+                    thumb.dataset.isThumb = hasDedicatedThumb ? "1" : "0";
+                    thumbObserver.observe(thumb);
+                }
+            }
+
+            const info = document.createElement("div");
+            info.className = "item-info";
+            const ext = (!isFolder && item.name && item.name.includes(".")) ? item.name.split(".").pop().toUpperCase() : (isFolder ? "Folder" : "File");
+            const sizeLabel = item.size ? ` • ${formatBytes(item.size)}` : "";
+            info.innerHTML = `<div class="item-name"></div><div class="item-sub"></div>`;
+            info.querySelector(".item-name").innerText = item.name || "Untitled";
+            info.querySelector(".item-sub").innerText = ext + sizeLabel;
+
+            left.append(thumb, info);
+            card.append(check, left);
+
+            if (!isFolder) {
+                const actions = document.createElement("div");
+                actions.className = "item-actions";
+
+                const btnInfo = document.createElement("button");
+                btnInfo.className = "mini-btn";
+                btnInfo.title = "Properties";
+                btnInfo.innerHTML = ICONS.info;
+                btnInfo.onclick = (e) => { e.stopPropagation(); openPropertiesModal(item); };
+
+                const btnDl = document.createElement("button");
+                btnDl.className = "mini-btn";
+                btnDl.title = "Download";
+                btnDl.innerHTML = ICONS.download;
+                btnDl.onclick = (e) => { e.stopPropagation(); downloadSingleFileProperly(item); };
+
+                actions.append(btnInfo, btnDl);
+                card.appendChild(actions);
+            }
+
+            return card;
+        }
+
+        function appendNextRenderBatch() {
+            const container = document.getElementById("fileContainer");
+            if (scrollSentinelEl) {
+                scrollSentinelObserver.unobserve(scrollSentinelEl);
+                scrollSentinelEl.remove();
+                scrollSentinelEl = null;
+            }
+            if (renderedCount >= activeRenderList.length) return;
+
+            const end = Math.min(renderedCount + RENDER_BATCH_SIZE, activeRenderList.length);
+            const frag = document.createDocumentFragment();
+            for (let i = renderedCount; i < end; i++) {
+                const item = activeRenderList[i];
+                frag.appendChild(activeRenderIsTrash ? createTrashCard(item) : createNormalCard(item));
+            }
+            container.appendChild(frag);
+            renderedCount = end;
+
+            if (renderedCount < activeRenderList.length) {
+                scrollSentinelEl = document.createElement("div");
+                scrollSentinelEl.className = "scroll-sentinel";
+                scrollSentinelEl.innerText = `Showing ${renderedCount} of ${activeRenderList.length} items...`;
+                container.appendChild(scrollSentinelEl);
+                scrollSentinelObserver.observe(scrollSentinelEl);
+            }
+        }
+
         function renderFiles() {
             updateStorageBadge();
             const container = document.getElementById("fileContainer");
@@ -2282,6 +2453,9 @@
             const btnBack = document.getElementById("btnBack");
             const query = document.getElementById("searchInput").value.trim().toLowerCase();
 
+            scrollSentinelObserver.disconnect();
+            scrollSentinelEl = null;
+            renderedCount = 0;
             container.innerHTML = "";
 
             if (inTrash) {
@@ -2290,62 +2464,14 @@
                 const rawList = trashHistory.filter(i => !query || (i.name || "").toLowerCase().includes(query));
                 const list = applySortToList(rawList, trashHistory, fileSortMode);
                 currentVisibleItems = list;
+                activeRenderList = list;
+                activeRenderIsTrash = true;
 
                 if (list.length === 0) {
                     container.innerHTML = `<div class="empty-msg">Recycle Bin is empty</div>`;
                     return;
                 }
-                list.forEach(item => {
-                    const isSelected = selectedItems.has(item);
-                    const card = document.createElement("div");
-                    card._item = item;
-                    card.className = "item-card" + (isSelected ? " selected" : "");
-
-                    const check = document.createElement("div");
-                    check.className = "select-check";
-                    check.innerText = isSelected ? "✓" : "";
-
-                    attachInteractions(card, check, item, () => {
-                        showStatus("Click checkbox or long-press to select items.");
-                    });
-
-                    const left = document.createElement("div");
-                    left.className = "item-left";
-
-                    const thumb = document.createElement("div");
-                    thumb.className = "thumb-box" + (item.type === "folder" ? " folder-bg" : "");
-                    thumb.innerHTML = item.type === "folder" ? ICONS.folder : getDefaultFileSvg(item.name);
-
-                    const info = document.createElement("div");
-                    info.className = "item-info";
-                    info.innerHTML = `<div class="item-name"></div><div class="item-sub">In Recycle Bin</div>`;
-                    info.querySelector(".item-name").innerText = item.name || "Untitled";
-
-                    left.append(thumb, info);
-
-                    const actions = document.createElement("div");
-                    actions.className = "item-actions";
-
-                    const btnRes = document.createElement("button");
-                    btnRes.className = "mini-btn";
-                    btnRes.title = "Restore";
-                    btnRes.style.color = "var(--success)";
-                    btnRes.innerHTML = ICONS.restore;
-                    btnRes.onclick = (e) => { e.stopPropagation(); restoreItem(item); };
-
-                    const btnDel = document.createElement("button");
-                    btnDel.className = "mini-btn del";
-                    btnDel.title = "Delete Permanently";
-                    btnDel.innerHTML = ICONS.trash;
-                    btnDel.onclick = (e) => {
-                        e.stopPropagation();
-                        openConfirm("Delete Permanently?", `"${item.name}" will be permanently deleted from both Telegram and TeleCloud.`, "Delete Permanently", "btn-danger", () => deletePermanently(item));
-                    };
-
-                    actions.append(btnRes, btnDel);
-                    card.append(check, left, actions);
-                    container.appendChild(card);
-                });
+                appendNextRenderBatch();
                 return;
             }
 
@@ -2366,83 +2492,15 @@
             currentMediaList = files.filter(f => !f.isChunked && (isImageFile(f.name) || isVideoFile(f.name)));
             const items = [...folders, ...files];
             currentVisibleItems = items;
+            activeRenderList = items;
+            activeRenderIsTrash = false;
 
             if (items.length === 0) {
                 container.innerHTML = `<div class="empty-msg">${query ? "No matching files found" : "This folder is empty"}</div>`;
                 return;
             }
 
-            items.forEach(item => {
-                const isFolder = item.type === "folder";
-                const isSelected = selectedItems.has(item);
-                const card = document.createElement("div");
-                card._item = item;
-                card.className = "item-card" + (isSelected ? " selected" : "");
-
-                const check = document.createElement("div");
-                check.className = "select-check";
-                check.innerText = isSelected ? "✓" : "";
-
-                attachInteractions(card, check, item, () => {
-                    isFolder ? openFolder(item.name) : handleFileClick(item);
-                });
-
-                if (!isFolder && !item.isChunked && isImageFile(item.name)) {
-                    card.addEventListener("mouseenter", () => {
-                        if (!isPrivateMode() && item.fileId && !getFreshCachedUrl(item.fileId)) getTelegramDirectUrl(item.fileId);
-                    }, { once: true });
-                }
-
-                const left = document.createElement("div");
-                left.className = "item-left";
-
-                const thumb = document.createElement("div");
-                thumb.className = "thumb-box" + (isFolder ? " folder-bg" : "");
-                thumb.innerHTML = isFolder ? ICONS.folder : getDefaultFileSvg(item.name);
-
-                if (!isFolder) {
-                    const hasDedicatedThumb = Boolean(item.thumbFileId);
-                    const thumbId = item.thumbFileId || (!item.isChunked && isImageFile(item.name) ? item.fileId : "");
-                    if (thumbId) {
-                        thumb.dataset.thumbId = thumbId;
-                        thumb.dataset.isThumb = hasDedicatedThumb ? "1" : "0";
-                        thumbObserver.observe(thumb);
-                    }
-                }
-
-                const info = document.createElement("div");
-                info.className = "item-info";
-                const ext = (!isFolder && item.name && item.name.includes(".")) ? item.name.split(".").pop().toUpperCase() : (isFolder ? "Folder" : "File");
-                const sizeLabel = item.size ? ` • ${formatBytes(item.size)}` : "";
-                info.innerHTML = `<div class="item-name"></div><div class="item-sub"></div>`;
-                info.querySelector(".item-name").innerText = item.name || "Untitled";
-                info.querySelector(".item-sub").innerText = ext + sizeLabel;
-
-                left.append(thumb, info);
-                card.append(check, left);
-
-                if (!isFolder) {
-                    const actions = document.createElement("div");
-                    actions.className = "item-actions";
-
-                    const btnInfo = document.createElement("button");
-                    btnInfo.className = "mini-btn";
-                    btnInfo.title = "Properties";
-                    btnInfo.innerHTML = ICONS.info;
-                    btnInfo.onclick = (e) => { e.stopPropagation(); openPropertiesModal(item); };
-
-                    const btnDl = document.createElement("button");
-                    btnDl.className = "mini-btn";
-                    btnDl.title = "Download";
-                    btnDl.innerHTML = ICONS.download;
-                    btnDl.onclick = (e) => { e.stopPropagation(); downloadSingleFileProperly(item); };
-
-                    actions.append(btnInfo, btnDl);
-                    card.appendChild(actions);
-                }
-
-                container.appendChild(card);
-            });
+            appendNextRenderBatch();
         }
 
         function openFolder(name) {
