@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex, nofollow">
-    <title>TeleCloud Drive v10.0</title>
+    <title>TeleCloud Drive v10.1</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <style>
         :root {
@@ -91,6 +91,7 @@
         [data-theme="dark"] .btn-primary { color: #0b1120; }
         .btn-danger { background: var(--danger); color: #ffffff; }
         [data-theme="dark"] .btn-danger { color: #0b1120; }
+        .btn-warn { background: var(--warn-soft); color: var(--warn); }
         .btn-soft { background: var(--surface-2); color: var(--text); }
         .btn-full { width: 100%; padding: 14px; font-size: 15px; margin-top: 6px; }
 
@@ -276,7 +277,7 @@
 
         #mediaViewer { position: fixed; inset: 0; background: #000; z-index: 200; display: none; flex-direction: column; user-select: none; }
         #mediaViewer.open { display: flex; }
-        .viewer-top { padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; color: #fff; gap: 8px; background: rgba(0,0,0,0.65); z-index: 5; }
+        .viewer-top { padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; color: #fff; gap: 8px; background: rgba(0,0,0,0.65); z-index: 5; transition: opacity 0.2s ease; }
         .viewer-title-wrap { flex: 1; overflow: hidden; }
         .viewer-title { font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .viewer-counter { font-size: 11px; color: #94a3b8; margin-top: 2px; }
@@ -297,8 +298,15 @@
         .nav-next { right: 10px; }
         .nav-arrow.hidden { display: none; }
 
-        .viewer-bottom { padding: 12px 16px; display: flex; justify-content: center; gap: 12px; background: rgba(0,0,0,0.7); z-index: 5; }
-        .viewer-hint { text-align: center; color: #94a3b8; font-size: 11px; padding: 4px 10px; background: rgba(0,0,0,0.7); }
+        .viewer-bottom { padding: 12px 16px; display: flex; justify-content: center; gap: 12px; background: rgba(0,0,0,0.7); z-index: 5; transition: opacity 0.2s ease; }
+        .viewer-hint { text-align: center; color: #94a3b8; font-size: 11px; padding: 4px 10px; background: rgba(0,0,0,0.7); transition: opacity 0.2s ease; }
+
+        #mediaViewer.ui-hidden .viewer-top,
+        #mediaViewer.ui-hidden .viewer-bottom,
+        #mediaViewer.ui-hidden .viewer-hint {
+            opacity: 0;
+            pointer-events: none;
+        }
 
         #statusBar { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--toast-bg); color: var(--toast-text); padding: 10px 18px; border-radius: 99px; font-size: 13px; font-weight: 600; display: none; z-index: 300; box-shadow: 0 8px 20px rgba(0,0,0,0.28); max-width: 90%; text-align: center; }
     </style>
@@ -351,7 +359,7 @@
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
                 </div>
                 <h1>TeleCloud</h1>
-                <button class="storage-pill" id="storageBadge" onclick="showStorageBreakdown()" title="Total Uploaded Storage">0 B</button>
+                <button class="storage-pill" id="storageBadge" onclick="showStorageBreakdown()" title="Storage & Cache">0 B</button>
             </div>
             <div class="top-actions">
                 <button class="icon-btn" id="btnTheme" onclick="toggleTheme()" title="Toggle Theme"></button>
@@ -437,9 +445,25 @@
             </div>
             <div class="modal-list" id="uploadQueueBody"></div>
             <div class="modal-actions">
+                <button class="btn btn-warn" id="btnPauseAll" style="display:none" onclick="pauseAllActiveUploads()">Pause All</button>
                 <button class="btn btn-primary" id="btnResumeAll" style="display:none" onclick="resumeAllPausedUploads()">Resume All</button>
-                <button class="btn btn-soft" onclick="clearCompletedUploads()">Clear Completed</button>
+                <button class="btn btn-danger" id="btnCancelAll" style="display:none" onclick="confirmCancelAllUploads()">Cancel All</button>
+                <button class="btn btn-soft" onclick="clearCompletedUploads()">Clear Done</button>
                 <button class="btn btn-soft" onclick="closeModal('uploadModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="storageModal">
+        <div class="modal-card">
+            <div class="modal-title">
+                <span>Storage & Cache</span>
+                <button class="mini-btn" onclick="closeModal('storageModal')">✕</button>
+            </div>
+            <div class="prop-list" id="storageInfoBody"></div>
+            <div class="modal-actions">
+                <button class="btn btn-danger" onclick="clearThumbCache()">Clear Thumbnail Cache</button>
+                <button class="btn btn-soft" onclick="closeModal('storageModal')">Close</button>
             </div>
         </div>
     </div>
@@ -592,12 +616,49 @@
 
         let authMode = localStorage.getItem("td_auth_mode") || "";
         let appPassword = localStorage.getItem("td_app_pwd") || "";
+        let mediaToken = sessionStorage.getItem("td_media_token") || "";
+        let mediaTokenExp = Number(sessionStorage.getItem("td_media_token_exp") || "0");
+        let mediaTokenPromise = null;
         let licenseKey = localStorage.getItem("td_key") || "";
         let botToken = localStorage.getItem("td_token") || "";
         let chatId = localStorage.getItem("td_chatId") || "";
 
         function isPrivateMode() {
             return authMode === "private" && Boolean(appPassword);
+        }
+
+        async function ensureMediaToken(forceRefresh = false) {
+            if (!isPrivateMode()) return "";
+            if (!forceRefresh && mediaToken && Date.now() < mediaTokenExp - 10 * 60 * 1000) {
+                return mediaToken;
+            }
+            if (mediaTokenPromise) return mediaTokenPromise;
+            mediaTokenPromise = (async () => {
+                try {
+                    const res = await fetch(`${WORKER_BASE}/api/token`, {
+                        method: "POST",
+                        headers: { "X-App-Password": appPassword }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data && data.ok && data.token) {
+                            mediaToken = data.token;
+                            mediaTokenExp = Number(data.expiresAt) || (Date.now() + 2 * 60 * 60 * 1000);
+                            try {
+                                sessionStorage.setItem("td_media_token", mediaToken);
+                                sessionStorage.setItem("td_media_token_exp", String(mediaTokenExp));
+                            } catch (e) {}
+                            return mediaToken;
+                        }
+                    }
+                } catch (e) {}
+                return mediaToken;
+            })();
+            try {
+                return await mediaTokenPromise;
+            } finally {
+                mediaTokenPromise = null;
+            }
         }
 
         function switchLoginTab(mode) {
@@ -621,6 +682,7 @@
         let themeMode = localStorage.getItem("td_theme") || "light";
 
         const scrollPositions = {};
+        const openModalStack = [];
 
         if ("serviceWorker" in navigator) {
             navigator.serviceWorker.register("./sw.js").catch(() => {});
@@ -662,10 +724,27 @@
             if (badge) badge.innerText = formatBytes(totalBytes);
         }
 
-        function showStorageBreakdown() {
+        async function showStorageBreakdown() {
             const driveBytes = fileHistory.reduce((acc, it) => acc + (Number(it.size) || 0), 0);
             const trashBytes = trashHistory.reduce((acc, it) => acc + (Number(it.size) || 0), 0);
-            showStatus(`Drive: ${formatBytes(driveBytes)} • Recycle Bin: ${formatBytes(trashBytes)}`);
+            const thumbCount = await getThumbCacheCount();
+            const body = document.getElementById("storageInfoBody");
+            body.innerHTML = "";
+            const rows = [
+                { label: "Drive Storage", value: formatBytes(driveBytes) },
+                { label: "Recycle Bin", value: formatBytes(trashBytes) },
+                { label: "Total Uploaded", value: formatBytes(driveBytes + trashBytes) },
+                { label: "Local Thumbnail Cache", value: `${thumbCount} cached thumbnail(s) (max 250)` }
+            ];
+            rows.forEach(r => {
+                const div = document.createElement("div");
+                div.className = "prop-row";
+                div.innerHTML = `<div class="prop-label"></div><div class="prop-value"></div>`;
+                div.querySelector(".prop-label").innerText = r.label;
+                div.querySelector(".prop-value").innerText = r.value;
+                body.appendChild(div);
+            });
+            openModal("storageModal");
         }
 
         function isDesktop() { return window.innerWidth >= 768; }
@@ -693,14 +772,25 @@
 
         let zScale = 1, zX = 0, zY = 0;
         let lastTapTime = 0;
+        let singleTapTimer = null;
         let touchStartX = 0, touchStartY = 0;
         let panStartX = 0, panStartY = 0;
         let pinchStartDist = 0, pinchStartScale = 1;
-        let isPinching = false, isPanning = false, isMouseDragging = false;
+        let isPinching = false, isPanning = false, isMouseDragging = false, mouseMoved = false;
         let gridPinchStartDist = 0, gridPinchActive = false;
 
         const urlCache = JSON.parse(sessionStorage.getItem("td_url_cache") || "{}");
         const thumbObjectUrls = new Map();
+
+        function setThumbObjectUrl(thumbId, objUrl) {
+            if (thumbObjectUrls.size >= 120) {
+                const oldestKey = thumbObjectUrls.keys().next().value;
+                const oldestUrl = thumbObjectUrls.get(oldestKey);
+                if (oldestUrl) { try { URL.revokeObjectURL(oldestUrl); } catch (e) {} }
+                thumbObjectUrls.delete(oldestKey);
+            }
+            thumbObjectUrls.set(thumbId, objUrl);
+        }
 
         function getFreshCachedUrl(fileId) {
             const entry = urlCache[fileId];
@@ -811,6 +901,7 @@
                                     thumbFileId: s.thumbFileId || "",
                                     replaceExisting: Boolean(s.replaceExisting),
                                     status: "paused",
+                                    manualPause: true,
                                     progress: 0,
                                     note: "Paused after reload",
                                     xhr: null
@@ -824,10 +915,10 @@
             } catch (e) {}
         }
 
-        // --- IndexedDB 2: Lightweight Local Thumbnail Cache ---
+        // --- IndexedDB 2: Lightweight Local Thumbnail Cache (v10.1: Cap 250, Max 150KB) ---
         const THUMB_DB_NAME = "TeleCloudThumbCacheDB";
         const THUMB_STORE = "thumbs";
-        const MAX_CACHED_THUMBS = 500;
+        const MAX_CACHED_THUMBS = 250;
         let thumbDbPromise = null;
 
         function openThumbDB() {
@@ -848,6 +939,36 @@
             return thumbDbPromise;
         }
 
+        async function getThumbCacheCount() {
+            try {
+                const db = await openThumbDB();
+                return await new Promise((resolve) => {
+                    const tx = db.transaction(THUMB_STORE, "readonly");
+                    const req = tx.objectStore(THUMB_STORE).count();
+                    req.onsuccess = () => resolve(req.result || 0);
+                    req.onerror = () => resolve(0);
+                });
+            } catch (e) { return 0; }
+        }
+
+        async function clearThumbCache() {
+            try {
+                const db = await openThumbDB();
+                await new Promise((resolve) => {
+                    const tx = db.transaction(THUMB_STORE, "readwrite");
+                    tx.objectStore(THUMB_STORE).clear();
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => resolve();
+                });
+                thumbObjectUrls.forEach(u => { try { URL.revokeObjectURL(u); } catch (e) {} });
+                thumbObjectUrls.clear();
+                closeModal("storageModal");
+                showStatus("Thumbnail cache cleared.");
+            } catch (e) {
+                showStatus("Failed to clear cache.");
+            }
+        }
+
         async function getCachedThumbUrl(thumbId) {
             if (!thumbId) return null;
             if (thumbObjectUrls.has(thumbId)) return thumbObjectUrls.get(thumbId);
@@ -861,7 +982,7 @@
                 });
                 if (blob) {
                     const objUrl = URL.createObjectURL(blob);
-                    thumbObjectUrls.set(thumbId, objUrl);
+                    setThumbObjectUrl(thumbId, objUrl);
                     return objUrl;
                 }
             } catch (e) {}
@@ -869,7 +990,7 @@
         }
 
         async function saveThumbToCache(thumbId, blob) {
-            if (!thumbId || !blob || blob.size > 350000) return;
+            if (!thumbId || !blob || blob.size > 150000) return;
             try {
                 const db = await openThumbDB();
                 const tx = db.transaction(THUMB_STORE, "readwrite");
@@ -905,9 +1026,34 @@
             if (wakeLock) { try { wakeLock.release(); } catch (e) {} wakeLock = null; }
         }
 
+        function autoResumeInterruptedUploads() {
+            let resumed = 0;
+            uploadTasks.forEach(t => {
+                if (t.status === "failed" && !t.manualPause && t.file) {
+                    t.status = "queued";
+                    t.note = "Resuming...";
+                    resumed++;
+                }
+            });
+            if (resumed > 0) {
+                updateUploadFab();
+                renderUploadQueue();
+                processUploadQueue();
+                showStatus(`Auto-resuming ${resumed} upload(s)...`);
+            }
+        }
+
         document.addEventListener("visibilitychange", () => {
-            const hasRunning = uploadTasks.some(t => t.status === "uploading" || t.status === "queued");
-            if (document.visibilityState === "visible" && hasRunning) acquireWakeLock();
+            if (document.visibilityState === "visible") {
+                if (isPrivateMode()) ensureMediaToken();
+                autoResumeInterruptedUploads();
+                const hasRunning = uploadTasks.some(t => t.status === "uploading" || t.status === "queued");
+                if (hasRunning) acquireWakeLock();
+            }
+        });
+
+        window.addEventListener("online", () => {
+            autoResumeInterruptedUploads();
         });
 
         window.addEventListener("beforeunload", (e) => {
@@ -922,15 +1068,47 @@
             requestAnimationFrame(() => window.scrollTo(0, y));
         }
 
+        function openModal(id) {
+            const el = document.getElementById(id);
+            if (!el || el.classList.contains("open")) return;
+            el.classList.add("open");
+            openModalStack.push(id);
+            history.pushState({ view: "modal", id }, "");
+        }
+
+        function closeModalInternal(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove("open");
+            const idx = openModalStack.lastIndexOf(id);
+            if (idx !== -1) openModalStack.splice(idx, 1);
+        }
+
+        function closeModal(id) {
+            const el = document.getElementById(id);
+            if (!el || !el.classList.contains("open")) return;
+            const isTopModal = openModalStack.length > 0 && openModalStack[openModalStack.length - 1] === id;
+            closeModalInternal(id);
+            if (isTopModal && history.state && history.state.view === "modal" && history.state.id === id) {
+                history.back();
+            }
+        }
+
         history.replaceState({ view: "root" }, "");
         window.addEventListener("popstate", () => {
-            if (document.getElementById("dupUploadModal").classList.contains("open")) {
-                resolveDupChoice("skip");
+            if (openModalStack.length > 0) {
+                const topId = openModalStack.pop();
+                if (topId === "dupUploadModal") {
+                    document.getElementById("dupUploadModal").classList.remove("open");
+                    if (dupChoiceResolver) {
+                        const res = dupChoiceResolver;
+                        dupChoiceResolver = null;
+                        res({ action: "skip", applyAll: false });
+                    }
+                    return;
+                }
+                const el = document.getElementById(topId);
+                if (el) el.classList.remove("open");
                 return;
-            }
-            const modals = ["confirmModal", "folderModal", "renameModal", "moveModal", "dlChoiceModal", "uploadModal", "sortModal", "propertiesModal"];
-            for (const m of modals) {
-                if (document.getElementById(m).classList.contains("open")) { closeModal(m); return; }
             }
             if (isViewerOpen) { closeViewerInternal(); return; }
             if (isMultiSelect) { exitMultiSelectInternal(); return; }
@@ -967,10 +1145,9 @@
             btn.innerText = okText;
             btn.className = "btn " + okClass;
             btn.onclick = () => { closeModal("confirmModal"); onConfirm(); };
-            document.getElementById("confirmModal").classList.add("open");
+            openModal("confirmModal");
         }
 
-        function closeModal(id) { document.getElementById(id).classList.remove("open"); }
         function isImageFile(name = "") { return /\.(jpg|jpeg|png|webp|gif)$/i.test(name); }
         function isVideoFile(name = "") { return /\.(mp4|mkv|avi|mov|webm)$/i.test(name); }
         function isPdfFile(name = "") { return /\.pdf$/i.test(name); }
@@ -1037,11 +1214,11 @@
                 body.appendChild(div);
             });
 
-            document.getElementById("propertiesModal").classList.add("open");
+            openModal("propertiesModal");
         }
 
         function buildPrivateFileUrl(fileId, fileName = "file", forceDownload = false) {
-            return `${WORKER_BASE}/api/file?fileId=${encodeURIComponent(fileId)}&name=${encodeURIComponent(fileName)}${forceDownload ? "&dl=1" : ""}&pwd=${encodeURIComponent(appPassword)}`;
+            return `${WORKER_BASE}/api/file?fileId=${encodeURIComponent(fileId)}&name=${encodeURIComponent(fileName)}${forceDownload ? "&dl=1" : ""}&token=${encodeURIComponent(mediaToken)}`;
         }
 
         function fetchPrivateFile(fileId, fileName = "file") {
@@ -1079,6 +1256,7 @@
             let dlUrl = "";
             if (isPrivateMode()) {
                 if (!item.fileId) return showStatus("File unavailable.");
+                await ensureMediaToken();
                 dlUrl = buildPrivateFileUrl(item.fileId, item.name || "file", true);
             } else {
                 const tgUrl = await getTelegramDirectUrl(item.fileId);
@@ -1138,7 +1316,10 @@
                         iframe.style.display = "none";
                         iframe.src = streamUrl;
                         document.body.appendChild(iframe);
-                        setTimeout(() => iframe.remove(), 60000);
+                        setTimeout(() => {
+                            iframe.remove();
+                            if (!uploadTasks.some(t => t.status === "uploading" || t.status === "queued")) releaseWakeLock();
+                        }, 60000);
                         showStatus("Streaming download started! Keep this tab open until complete.");
                         return;
                     }
@@ -1173,6 +1354,8 @@
                 showStatus("Download complete.");
             } catch (e) {
                 showStatus("Download failed. Please try again.");
+            } finally {
+                if (!uploadTasks.some(t => t.status === "uploading" || t.status === "queued")) releaseWakeLock();
             }
         }
 
@@ -1207,7 +1390,7 @@
                             const blob = await res.blob();
                             await saveThumbToCache(fid, blob);
                             const objUrl = URL.createObjectURL(blob);
-                            thumbObjectUrls.set(fid, objUrl);
+                            setThumbObjectUrl(fid, objUrl);
                             const img = document.createElement("img");
                             img.decoding = "async";
                             img.src = objUrl;
@@ -1218,6 +1401,7 @@
                         }
                     } catch (e) {}
                 }
+                await ensureMediaToken();
                 const img = document.createElement("img");
                 img.decoding = "async";
                 img.src = buildPrivateFileUrl(fid, "thumb.jpg", false);
@@ -1234,7 +1418,7 @@
                         const blob = await res.blob();
                         await saveThumbToCache(fid, blob);
                         const objUrl = URL.createObjectURL(blob);
-                        thumbObjectUrls.set(fid, objUrl);
+                        setThumbObjectUrl(fid, objUrl);
                         const img = document.createElement("img");
                         img.decoding = "async";
                         img.src = objUrl;
@@ -1266,6 +1450,8 @@
                 if (res.ok && data.ok) {
                     authMode = "private";
                     appPassword = pwd;
+                    mediaToken = data.token || "";
+                    mediaTokenExp = Number(data.expiresAt) || (Date.now() + 2 * 60 * 60 * 1000);
                     licenseKey = "";
                     botToken = "";
                     chatId = "";
@@ -1275,6 +1461,10 @@
                     localStorage.removeItem("td_token");
                     localStorage.removeItem("td_chatId");
                     sessionStorage.removeItem("td_url_cache");
+                    try {
+                        sessionStorage.setItem("td_media_token", mediaToken);
+                        sessionStorage.setItem("td_media_token_exp", String(mediaTokenExp));
+                    } catch (e) {}
                     openWorkspace();
                 } else {
                     showStatus(data.error || "Invalid master password.");
@@ -1297,9 +1487,13 @@
                 if (val === true || val === "true") {
                     authMode = "custom";
                     appPassword = "";
+                    mediaToken = "";
+                    mediaTokenExp = 0;
                     licenseKey = k; botToken = t; chatId = c;
                     localStorage.setItem("td_auth_mode", "custom");
                     localStorage.removeItem("td_app_pwd");
+                    sessionStorage.removeItem("td_media_token");
+                    sessionStorage.removeItem("td_media_token_exp");
                     localStorage.setItem("td_key", k);
                     localStorage.setItem("td_token", t);
                     localStorage.setItem("td_chatId", c);
@@ -1320,22 +1514,25 @@
                 localStorage.removeItem("td_token");
                 localStorage.removeItem("td_chatId");
                 sessionStorage.removeItem("td_url_cache");
+                sessionStorage.removeItem("td_media_token");
+                sessionStorage.removeItem("td_media_token_exp");
                 location.reload();
             });
         }
 
-        function openWorkspace() {
+        async function openWorkspace() {
             document.getElementById("loginScreen").style.display = "none";
             document.getElementById("workspace").style.display = "block";
             applyTheme();
             updateSortLabel();
             updateViewUI();
             window.scrollTo(0, 0);
+            if (isPrivateMode()) await ensureMediaToken();
             fetchFromCloud();
             restorePendingUploadsFromDB();
         }
 
-        // --- PER-FILE FIREBASE SYNC (v10.0 Hybrid) ---
+        // --- PER-FILE FIREBASE SYNC (v10.1 Hybrid) ---
         async function fetchFromCloud() {
             showStatus("Syncing...", false);
             try {
@@ -1481,7 +1678,7 @@
                 list.appendChild(btn);
             });
 
-            document.getElementById("sortModal").classList.add("open");
+            openModal("sortModal");
         }
 
         function applySortToList(arr, sourceArray, mode) {
@@ -1573,7 +1770,7 @@
             document.getElementById("renameModalTitle").innerText = item.type === "folder" ? "Rename Folder" : "Rename File";
             const inp = document.getElementById("renameItemInput");
             inp.value = item.name || "";
-            document.getElementById("renameModal").classList.add("open");
+            openModal("renameModal");
             setTimeout(() => { inp.focus(); inp.select(); }, 100);
         }
 
@@ -1588,6 +1785,11 @@
                     it => it !== itemToRename && it.type === "folder" && (it.path || "/") === basePath && (it.name || "").toLowerCase() === newName.toLowerCase()
                 );
                 if (dupFolder) return showStatus("A folder with this name already exists.");
+            } else {
+                const dupFile = fileHistory.some(
+                    it => it !== itemToRename && it.type !== "folder" && (it.path || "/") === basePath && (it.name || "").toLowerCase() === newName.toLowerCase()
+                );
+                if (dupFile) return showStatus("A file with this name already exists in this folder.");
             }
 
             const snap = snapshotState();
@@ -1727,7 +1929,7 @@
                 return;
             }
             document.getElementById("dlChoiceDesc").innerText = `${filesOnly.length} files selected. Choose a download method:`;
-            document.getElementById("dlChoiceModal").classList.add("open");
+            openModal("dlChoiceModal");
         }
 
         async function startBatchNormalDownload() {
@@ -1783,7 +1985,7 @@
             if (selectedItems.size === 0) return;
             document.getElementById("moveSearchInput").value = "";
             renderMoveFolderList();
-            document.getElementById("moveModal").classList.add("open");
+            openModal("moveModal");
         }
 
         function renderMoveFolderList() {
@@ -2256,7 +2458,7 @@
             if (inTrash) return showStatus("Exit Recycle Bin to create a folder.");
             const inp = document.getElementById("newFolderInput");
             inp.value = "";
-            document.getElementById("folderModal").classList.add("open");
+            openModal("folderModal");
             setTimeout(() => inp.focus(), 100);
         }
 
@@ -2303,7 +2505,7 @@
                 const chk = document.getElementById("dupApplyAllChk");
                 chk.checked = false;
                 chkWrap.style.display = showApplyAll ? "flex" : "none";
-                document.getElementById("dupUploadModal").classList.add("open");
+                openModal("dupUploadModal");
             });
         }
 
@@ -2320,7 +2522,7 @@
         // --- Upload Manager (Single + Unlimited 19 MB Chunked Upload + Video/Image Thumbnails) ---
         function openUploadModal() {
             renderUploadQueue();
-            document.getElementById("uploadModal").classList.add("open");
+            openModal("uploadModal");
         }
 
         async function handleUploadSelection(files) {
@@ -2374,6 +2576,7 @@
                     thumbFileId: "",
                     replaceExisting,
                     status: "queued",
+                    manualPause: false,
                     progress: 0,
                     note: "",
                     xhr: null
@@ -2453,12 +2656,15 @@
         }
 
         async function commitUploadedFileRecord(task, newRecord) {
+            const snap = snapshotState();
             const updates = {};
+            const replacedItems = [];
             if (task.replaceExisting) {
                 for (let i = fileHistory.length - 1; i >= 0; i--) {
                     const it = fileHistory[i];
                     if (it.type !== "folder" && (it.path || "/") === task.targetPath && (it.name || "").toLowerCase() === task.name.toLowerCase()) {
                         updates[`files/${ensureItemId(it)}`] = null;
+                        replacedItems.push(it);
                         fileHistory.splice(i, 1);
                     }
                 }
@@ -2466,11 +2672,23 @@
             const newId = ensureItemId(newRecord);
             updates[`files/${newId}`] = newRecord;
             fileHistory.push(newRecord);
-            await fbPatchChannel(updates);
+
+            const ok = await fbPatchChannel(updates);
+            if (!ok) {
+                restoreSnapshot(snap);
+                return false;
+            }
+            if (replacedItems.length > 0) {
+                replacedItems.forEach(oldItem => {
+                    deleteItemFromTelegram(oldItem).catch(() => {});
+                });
+            }
+            return true;
         }
 
         async function startUploadTask(task) {
             task.status = "uploading";
+            task.manualPause = false;
             task.note = "";
             activeUploadCount++;
             updateUploadFab();
@@ -2497,7 +2715,7 @@
                             const thumbId = (doc.thumbnail && doc.thumbnail.file_id) || (doc.thumb && doc.thumb.file_id) || "";
                             if (thumbId && thumbBlob) saveThumbToCache(thumbId, thumbBlob);
 
-                            await commitUploadedFileRecord(task, {
+                            const committed = await commitUploadedFileRecord(task, {
                                 type: "file",
                                 msgId: String(r.message_id),
                                 fileId: doc.file_id,
@@ -2507,11 +2725,16 @@
                                 thumbFileId: thumbId,
                                 uploadedAt: Date.now()
                             });
-                            task.status = "done";
-                            task.progress = 100;
-                            task.file = null;
-                            await idbDeleteTask(task.id);
-                            renderFiles();
+                            if (committed) {
+                                task.status = "done";
+                                task.progress = 100;
+                                task.file = null;
+                                await idbDeleteTask(task.id);
+                                renderFiles();
+                            } else {
+                                task.status = "failed";
+                                task.note = "Sync failed — tap to retry";
+                            }
                         } else {
                             task.status = "failed";
                         }
@@ -2574,7 +2797,7 @@
                         }
                     }
 
-                    await commitUploadedFileRecord(task, {
+                    const committed = await commitUploadedFileRecord(task, {
                         type: "file",
                         isChunked: true,
                         name: task.name,
@@ -2584,12 +2807,17 @@
                         chunks: task.uploadedChunks,
                         uploadedAt: Date.now()
                     });
-                    task.status = "done";
-                    task.progress = 100;
-                    task.note = "";
-                    task.file = null;
-                    await idbDeleteTask(task.id);
-                    renderFiles();
+                    if (committed) {
+                        task.status = "done";
+                        task.progress = 100;
+                        task.note = "";
+                        task.file = null;
+                        await idbDeleteTask(task.id);
+                        renderFiles();
+                    } else {
+                        task.status = "failed";
+                        task.note = "Sync failed — tap to retry";
+                    }
                 }
             } catch (e) {
                 if (task.status !== "cancelled" && task.status !== "paused") task.status = "failed";
@@ -2606,8 +2834,23 @@
             const task = uploadTasks.find(t => t.id === id);
             if (!task) return;
             task.status = "paused";
+            task.manualPause = true;
             task.note = "Paused";
             if (task.xhr) { try { task.xhr.abort(); } catch (e) {} }
+            updateUploadFab();
+            renderUploadQueue();
+            processUploadQueue();
+        }
+
+        function pauseAllActiveUploads() {
+            uploadTasks.forEach(t => {
+                if (t.status === "uploading" || t.status === "queued" || t.status === "waiting") {
+                    t.status = "paused";
+                    t.manualPause = true;
+                    t.note = "Paused";
+                    if (t.xhr) { try { t.xhr.abort(); } catch (e) {} }
+                }
+            });
             updateUploadFab();
             renderUploadQueue();
             processUploadQueue();
@@ -2617,6 +2860,7 @@
             const task = uploadTasks.find(t => t.id === id);
             if (!task || !task.file) return;
             task.status = "queued";
+            task.manualPause = false;
             task.note = "";
             updateUploadFab();
             renderUploadQueue();
@@ -2627,6 +2871,7 @@
             uploadTasks.forEach(t => {
                 if ((t.status === "paused" || t.status === "failed") && t.file) {
                     t.status = "queued";
+                    t.manualPause = false;
                     t.note = "";
                 }
             });
@@ -2645,6 +2890,25 @@
             updateUploadFab();
             renderUploadQueue();
             processUploadQueue();
+        }
+
+        function confirmCancelAllUploads() {
+            const pendingCount = uploadTasks.filter(t => t.status !== "done").length;
+            if (pendingCount === 0) return;
+            openConfirm("Cancel All Uploads?", `Cancel all ${pendingCount} pending/paused upload(s)?`, "Cancel All", "btn-danger", () => {
+                uploadTasks.forEach(t => {
+                    if (t.status !== "done") {
+                        t.status = "cancelled";
+                        if (t.xhr) { try { t.xhr.abort(); } catch (e) {} }
+                        idbDeleteTask(t.id);
+                    }
+                });
+                uploadTasks = uploadTasks.filter(t => t.status === "done");
+                updateUploadFab();
+                renderUploadQueue();
+                processUploadQueue();
+                showStatus("All pending uploads cancelled.");
+            });
         }
 
         function clearCompletedUploads() {
@@ -2670,14 +2934,19 @@
 
         function renderUploadQueue() {
             const body = document.getElementById("uploadQueueBody");
+            const pauseAllBtn = document.getElementById("btnPauseAll");
             const resumeAllBtn = document.getElementById("btnResumeAll");
+            const cancelAllBtn = document.getElementById("btnCancelAll");
             if (!body) return;
             body.innerHTML = "";
 
             const activeList = uploadTasks.filter(t => t.status !== "done");
             const doneList = uploadTasks.filter(t => t.status === "done");
+            const hasRunning = activeList.some(t => t.status === "uploading" || t.status === "queued" || t.status === "waiting");
             const hasPaused = activeList.some(t => (t.status === "paused" || t.status === "failed") && t.file);
+            if (pauseAllBtn) pauseAllBtn.style.display = hasRunning ? "inline-flex" : "none";
             if (resumeAllBtn) resumeAllBtn.style.display = hasPaused ? "inline-flex" : "none";
+            if (cancelAllBtn) cancelAllBtn.style.display = activeList.length > 0 ? "inline-flex" : "none";
 
             if (uploadTasks.length === 0) {
                 body.innerHTML = `<div class="empty-msg" style="padding:24px;">No active uploads</div>`;
@@ -2701,7 +2970,7 @@
                         statusCls = "uploading";
                     } else if (t.status === "waiting") { statusText = t.note || "Rate limit: waiting..."; statusCls = "paused"; }
                     else if (t.status === "paused") { statusText = t.note || "Paused"; statusCls = "paused"; }
-                    else if (t.status === "failed") { statusText = "Failed — tap to resume"; statusCls = "failed"; }
+                    else if (t.status === "failed") { statusText = t.note || "Failed — tap to resume"; statusCls = "failed"; }
 
                     div.innerHTML = `
                         <div class="queue-top">
@@ -2856,6 +3125,11 @@
             }
         }
 
+        function toggleViewerUI() {
+            const viewer = document.getElementById("mediaViewer");
+            if (viewer) viewer.classList.toggle("ui-hidden");
+        }
+
         function resetZoom() { zScale = 1; zX = 0; zY = 0; applyZoomTransform(); }
         function applyZoomTransform() {
             const img = document.getElementById("activeZoomImg");
@@ -2869,6 +3143,7 @@
             if (!isViewerOpen || adjIdx < 0 || adjIdx >= currentMediaList.length) return;
             const adjItem = currentMediaList[adjIdx];
             if (!adjItem || !isImageFile(adjItem.name) || viewerPreloadMap.has(adjItem.fileId)) return;
+            if (isPrivateMode()) await ensureMediaToken();
             const url = isPrivateMode()
                 ? buildPrivateFileUrl(adjItem.fileId, adjItem.name || "image.jpg", false)
                 : await getTelegramDirectUrl(adjItem.fileId);
@@ -2908,8 +3183,8 @@
 
             if (isImageFile(item.name)) {
                 hint.innerText = isDesktop()
-                    ? "Scroll to zoom (up to 10x) • Drag to pan • Arrow keys to navigate"
-                    : "Pinch or double-tap to zoom (up to 10x) • Swipe to navigate";
+                    ? "Click photo to hide UI • Scroll to zoom (up to 10x) • Arrow keys to navigate"
+                    : "Tap photo to hide UI • Double-tap or pinch to zoom • Swipe to navigate";
 
                 const img = document.createElement("img");
                 img.id = "activeZoomImg";
@@ -2941,6 +3216,7 @@
                     content.innerHTML = `<div style="color:#94a3b8;font-size:14px;">Loading...</div>`;
                 }
 
+                if (isPrivateMode()) await ensureMediaToken();
                 const fullUrl = isPrivateMode()
                     ? (item.fileId ? buildPrivateFileUrl(item.fileId, item.name || "image.jpg", false) : null)
                     : await getTelegramDirectUrl(item.fileId);
@@ -2967,9 +3243,11 @@
                 hdLoader.onerror = () => { if (badge.parentNode) badge.remove(); };
                 hdLoader.src = fullUrl;
             } else {
+                document.getElementById("mediaViewer").classList.remove("ui-hidden");
                 content.innerHTML = `<div style="color:#94a3b8;font-size:14px;">Loading video...</div>`;
                 let videoUrl = "";
                 if (isPrivateMode()) {
+                    await ensureMediaToken();
                     videoUrl = item.fileId ? buildPrivateFileUrl(item.fileId, item.name || "video.mp4", false) : "";
                 } else {
                     const url = await getTelegramDirectUrl(item.fileId);
@@ -3000,7 +3278,9 @@
 
         function closeViewerInternal() {
             isViewerOpen = false;
-            document.getElementById("mediaViewer").classList.remove("open");
+            clearTimeout(singleTapTimer);
+            const mv = document.getElementById("mediaViewer");
+            mv.classList.remove("open", "ui-hidden");
             document.getElementById("viewerContent").innerHTML = "";
             viewerPreloadMap.clear();
             resetZoom();
@@ -3008,17 +3288,20 @@
 
         const viewerBody = document.getElementById("viewerBody");
         function getTouchDist(t1, t2) { return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY); }
+        let lastTouchEndTime = 0;
 
         viewerBody.addEventListener("touchstart", (e) => {
             if (e.target.tagName === "VIDEO" || e.target.closest(".nav-arrow")) return;
             const img = document.getElementById("activeZoomImg");
             if (e.touches.length === 2 && img) {
+                clearTimeout(singleTapTimer);
                 isPinching = true; isPanning = false;
                 pinchStartDist = getTouchDist(e.touches[0], e.touches[1]);
                 pinchStartScale = zScale;
             } else if (e.touches.length === 1) {
                 const now = Date.now();
                 if (img && now - lastTapTime < 280) {
+                    clearTimeout(singleTapTimer);
                     if (zScale > 1.1) resetZoom();
                     else { zScale = 3; zX = 0; zY = 0; applyZoomTransform(); }
                     lastTapTime = 0;
@@ -3052,17 +3335,40 @@
         }, { passive: true });
 
         viewerBody.addEventListener("touchend", (e) => {
+            lastTouchEndTime = Date.now();
             if (e.target.tagName === "VIDEO" || e.target.closest(".nav-arrow")) return;
             if (isPinching && e.touches.length < 2) { isPinching = false; if (zScale < 1.05) resetZoom(); return; }
-            if (isPanning) { isPanning = false; return; }
+            if (isPanning) {
+                isPanning = false;
+                if (e.changedTouches.length === 1) {
+                    const dx = e.changedTouches[0].clientX - touchStartX;
+                    const dy = e.changedTouches[0].clientY - touchStartY;
+                    if (Math.abs(dx) < 12 && Math.abs(dy) < 12 && lastTapTime !== 0) {
+                        clearTimeout(singleTapTimer);
+                        singleTapTimer = setTimeout(() => { toggleViewerUI(); }, 270);
+                    }
+                }
+                return;
+            }
             if (zScale <= 1.05 && e.changedTouches.length === 1) {
                 const dx = e.changedTouches[0].clientX - touchStartX;
                 const dy = e.changedTouches[0].clientY - touchStartY;
                 if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+                    clearTimeout(singleTapTimer);
                     if (dx < 0) stepMedia(1); else stepMedia(-1);
+                } else if (Math.abs(dx) < 12 && Math.abs(dy) < 12 && document.getElementById("activeZoomImg") && lastTapTime !== 0) {
+                    clearTimeout(singleTapTimer);
+                    singleTapTimer = setTimeout(() => { toggleViewerUI(); }, 270);
                 }
             }
         }, { passive: true });
+
+        viewerBody.addEventListener("click", (e) => {
+            if (Date.now() - lastTouchEndTime < 450) return;
+            if (e.target.tagName === "VIDEO" || e.target.closest(".nav-arrow")) return;
+            if (mouseMoved) { mouseMoved = false; return; }
+            if (document.getElementById("activeZoomImg")) toggleViewerUI();
+        });
 
         viewerBody.addEventListener("wheel", (e) => {
             const img = document.getElementById("activeZoomImg");
@@ -3078,6 +3384,7 @@
             const img = document.getElementById("activeZoomImg");
             if (!isViewerOpen || !img || zScale <= 1.05 || e.target.closest(".nav-arrow")) return;
             isMouseDragging = true;
+            mouseMoved = false;
             panStartX = e.clientX - zX;
             panStartY = e.clientY - zY;
             img.classList.add("dragging");
@@ -3085,6 +3392,7 @@
 
         window.addEventListener("mousemove", (e) => {
             if (!isMouseDragging) return;
+            mouseMoved = true;
             zX = e.clientX - panStartX;
             zY = e.clientY - panStartY;
             applyZoomTransform();
@@ -3179,4 +3487,3 @@
     </script>
 </body>
 </html>
-
