@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex, nofollow">
-    <title>TeleCloud Drive v10.4</title>
+    <title>TeleCloud Drive v10.5</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <style>
         :root {
@@ -610,6 +610,9 @@
         const RENDER_BATCH_SIZE = 100; // Incremental scroll batch size
         const MAX_ZOOM = 10;
         const URL_CACHE_TTL_MS = 50 * 60 * 1000; // 50 minutes
+        const MAX_THUMB_CONCURRENCY = 4; // Rate-limit & GPU safety for uncached thumbnails
+        const GRID_IMAGE_FALLBACK_MAX_BYTES = 5 * 1024 * 1024; // 5 MB guard for grid cards without thumbFileId
+        const MIN_UPLOAD_INTERVAL_MS = 1500; // Smart pacing for fast/small uploads
 
         if ("scrollRestoration" in history) {
             history.scrollRestoration = "manual";
@@ -766,6 +769,7 @@
         let activeUploadCount = 0;
         const MAX_CONCURRENT_UPLOADS = 2;
         let wakeLock = null;
+        let lastUploadSendTs = 0;
 
         let currentMediaList = [];
         let currentMediaIndex = 0;
@@ -1371,6 +1375,28 @@
             }
         }
 
+        const thumbLoadQueue = [];
+        let activeThumbLoads = 0;
+
+        function enqueueThumbLoad(el, fid, isDedicatedThumb) {
+            thumbLoadQueue.push({ el, fid, isDedicatedThumb });
+            drainThumbQueue();
+        }
+
+        function drainThumbQueue() {
+            while (activeThumbLoads < MAX_THUMB_CONCURRENCY && thumbLoadQueue.length > 0) {
+                const job = thumbLoadQueue.shift();
+                if (!job.el || !job.el.isConnected) continue;
+                activeThumbLoads++;
+                loadThumbnailNetworkIntoElement(job.el, job.fid, job.isDedicatedThumb)
+                    .catch(() => {})
+                    .finally(() => {
+                        activeThumbLoads = Math.max(0, activeThumbLoads - 1);
+                        drainThumbQueue();
+                    });
+            }
+        }
+
         const thumbObserver = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (!entry.isIntersecting) return;
@@ -1386,6 +1412,7 @@
         async function loadThumbnailIntoElement(el, fid, isDedicatedThumb) {
             const cachedUrl = await getCachedThumbUrl(fid);
             if (cachedUrl) {
+                if (!el.isConnected) return;
                 const img = document.createElement("img");
                 img.decoding = "async";
                 img.src = cachedUrl;
@@ -1394,6 +1421,11 @@
                 el.appendChild(img);
                 return;
             }
+            enqueueThumbLoad(el, fid, isDedicatedThumb);
+        }
+
+        async function loadThumbnailNetworkIntoElement(el, fid, isDedicatedThumb) {
+            if (!el.isConnected) return;
             if (isPrivateMode()) {
                 if (isDedicatedThumb) {
                     try {
@@ -1403,6 +1435,7 @@
                             await saveThumbToCache(fid, blob);
                             const objUrl = URL.createObjectURL(blob);
                             setThumbObjectUrl(fid, objUrl);
+                            if (!el.isConnected) return;
                             const img = document.createElement("img");
                             img.decoding = "async";
                             img.src = objUrl;
@@ -1414,15 +1447,22 @@
                     } catch (e) {}
                 }
                 await ensureMediaToken();
-                const img = document.createElement("img");
-                img.decoding = "async";
-                img.src = buildPrivateFileUrl(fid, "thumb.jpg", false);
-                img.alt = "";
-                img.onload = () => { el.innerHTML = ""; el.appendChild(img); };
+                if (!el.isConnected) return;
+                await new Promise((resolve) => {
+                    const img = document.createElement("img");
+                    img.decoding = "async";
+                    img.alt = "";
+                    img.onload = () => {
+                        if (el.isConnected) { el.innerHTML = ""; el.appendChild(img); }
+                        resolve();
+                    };
+                    img.onerror = () => resolve();
+                    img.src = buildPrivateFileUrl(fid, "thumb.jpg", false);
+                });
                 return;
             }
             const tgUrl = await getTelegramDirectUrl(fid);
-            if (!tgUrl) return;
+            if (!tgUrl || !el.isConnected) return;
             if (isDedicatedThumb) {
                 try {
                     const res = await fetch(buildWorkerUrl(tgUrl, "thumb.jpg", false));
@@ -1431,6 +1471,7 @@
                         await saveThumbToCache(fid, blob);
                         const objUrl = URL.createObjectURL(blob);
                         setThumbObjectUrl(fid, objUrl);
+                        if (!el.isConnected) return;
                         const img = document.createElement("img");
                         img.decoding = "async";
                         img.src = objUrl;
@@ -1441,11 +1482,17 @@
                     }
                 } catch (e) {}
             }
-            const img = document.createElement("img");
-            img.decoding = "async";
-            img.src = tgUrl;
-            img.alt = "";
-            img.onload = () => { el.innerHTML = ""; el.appendChild(img); };
+            await new Promise((resolve) => {
+                const img = document.createElement("img");
+                img.decoding = "async";
+                img.alt = "";
+                img.onload = () => {
+                    if (el.isConnected) { el.innerHTML = ""; el.appendChild(img); }
+                    resolve();
+                };
+                img.onerror = () => resolve();
+                img.src = tgUrl;
+            });
         }
 
         async function loginPrivate() {
@@ -1544,7 +1591,7 @@
             restorePendingUploadsFromDB();
         }
 
-        // --- PER-FILE FIREBASE SYNC (v10.4 Hybrid) ---
+        // --- PER-FILE FIREBASE SYNC (v10.5 Hybrid) ---
         async function fetchFromCloud() {
             showStatus("Syncing...", false);
             try {
@@ -2293,7 +2340,7 @@
             };
         }
 
-        // --- Incremental Infinite Scroll Renderer (v10.4 Scroll-Safe) ---
+        // --- Incremental Infinite Scroll Renderer (v10.5 Scroll-Safe + Size Guard) ---
         let activeRenderList = [];
         let activeRenderIsTrash = false;
         let renderedCount = 0;
@@ -2386,7 +2433,8 @@
 
             if (!isFolder) {
                 const hasDedicatedThumb = Boolean(item.thumbFileId);
-                const thumbId = item.thumbFileId || (!item.isChunked && isImageFile(item.name) ? item.fileId : "");
+                const allowFullFallback = !item.isChunked && isImageFile(item.name) && (!item.size || Number(item.size) <= GRID_IMAGE_FALLBACK_MAX_BYTES);
+                const thumbId = item.thumbFileId || (allowFullFallback ? item.fileId : "");
                 if (thumbId && thumbObjectUrls.has(thumbId)) {
                     const img = document.createElement("img");
                     img.decoding = "async";
@@ -2477,6 +2525,7 @@
             const btnBack = document.getElementById("btnBack");
             const query = document.getElementById("searchInput").value.trim().toLowerCase();
 
+            thumbLoadQueue.length = 0;
             scrollSentinelObserver.disconnect();
             scrollSentinelEl = null;
             renderedCount = 0;
@@ -2609,7 +2658,7 @@
             }
         }
 
-        // --- Upload Manager (Single + Unlimited 19 MB Chunked Upload + Video/Image Thumbnails) ---
+        // --- Upload Manager (Single + Unlimited 19 MB Chunked Upload + Video/Image Thumbnails + Smart Pacing) ---
         function openUploadModal() {
             renderUploadQueue();
             openModal("uploadModal");
@@ -2697,6 +2746,16 @@
         async function uploadBlobWithRetry(task, blob, filename, thumbBlob, onProgress) {
             for (let attempt = 0; attempt < 6; attempt++) {
                 if (task.status === "cancelled" || task.status === "paused") return null;
+
+                const now = Date.now();
+                const nextAllowed = Math.max(now, lastUploadSendTs + MIN_UPLOAD_INTERVAL_MS);
+                lastUploadSendTs = nextAllowed;
+                const waitMs = nextAllowed - now;
+                if (waitMs > 0) {
+                    await new Promise(r => setTimeout(r, waitMs));
+                    if (task.status === "cancelled" || task.status === "paused") return null;
+                }
+
                 const res = await uploadBlobXhr(task, blob, filename, thumbBlob, onProgress);
                 if (res.status === 429 || (res.json && res.json.error_code === 429)) {
                     const waitSec = (res.json && res.json.parameters && res.json.parameters.retry_after) ? res.json.parameters.retry_after : 6;
@@ -3124,7 +3183,7 @@
             }
         }
 
-        // --- Thumbnail Generator (Images + Videos of any size) ---
+        // --- Thumbnail Generator (Images + Videos of any size — v10.5 Upgraded) ---
         function createMediaThumbnail(file) {
             if (!file) return Promise.resolve(null);
             if ((file.type && file.type.startsWith("image/")) || isImageFile(file.name)) {
@@ -3159,6 +3218,7 @@
                 const video = document.createElement("video");
                 const objUrl = URL.createObjectURL(file);
                 let finished = false;
+                let seekAttempted = false;
 
                 const done = (blob) => {
                     if (finished) return;
@@ -3170,28 +3230,42 @@
                     resolve(blob);
                 };
 
-                const timer = setTimeout(() => done(null), 4500);
-
-                video.muted = true;
-                video.playsInline = true;
-                video.preload = "metadata";
-
-                video.onloadedmetadata = () => {
-                    const seekTo = (video.duration && isFinite(video.duration)) ? Math.min(1, video.duration * 0.1) : 0.1;
-                    try { video.currentTime = seekTo; } catch (e) { done(null); }
-                };
-
-                video.onseeked = () => {
+                const captureFrame = () => {
                     try {
-                        if (!video.videoWidth || !video.videoHeight) return done(null);
+                        if (!video.videoWidth || !video.videoHeight) return false;
                         const scale = Math.min(320 / video.videoWidth, 320 / video.videoHeight, 1);
                         const canvas = document.createElement("canvas");
                         canvas.width = Math.round(video.videoWidth * scale);
                         canvas.height = Math.round(video.videoHeight * scale);
                         canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
                         canvas.toBlob(blob => done(blob), "image/jpeg", 0.72);
+                        return true;
                     } catch (e) {
-                        done(null);
+                        return false;
+                    }
+                };
+
+                const timer = setTimeout(() => {
+                    if (!captureFrame()) done(null);
+                }, 10000);
+
+                video.muted = true;
+                video.playsInline = true;
+                video.preload = "auto";
+
+                video.onloadedmetadata = () => {
+                    const seekTo = (video.duration && isFinite(video.duration)) ? Math.min(1, video.duration * 0.1) : 0.1;
+                    seekAttempted = true;
+                    try { video.currentTime = seekTo; } catch (e) {}
+                };
+
+                video.onseeked = () => {
+                    if (!captureFrame()) done(null);
+                };
+
+                video.onloadeddata = () => {
+                    if (!seekAttempted && video.videoWidth > 0) {
+                        captureFrame();
                     }
                 };
 
@@ -3330,7 +3404,13 @@
                     preloadAdjacentImage(idx + 1);
                     preloadAdjacentImage(idx - 1);
                 };
-                hdLoader.onerror = () => { if (badge.parentNode) badge.remove(); };
+                hdLoader.onerror = () => {
+                    if (!isViewerOpen || currentMediaIndex !== idx) return;
+                    if (badge.parentNode) badge.remove();
+                    if (!localThumbUrl) {
+                        content.innerHTML = `<div style="color:#f87171;font-size:14px;padding:20px;text-align:center;">Unable to load image (may exceed 20 MB limit).</div>`;
+                    }
+                };
                 hdLoader.src = fullUrl;
             } else {
                 document.getElementById("mediaViewer").classList.remove("ui-hidden");
@@ -3577,3 +3657,4 @@
     </script>
 </body>
 </html>
+
